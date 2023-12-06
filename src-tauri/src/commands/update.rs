@@ -3,7 +3,7 @@ use crate::{
     types::{Error, MoonlightBranch},
     version::{download_nightly, download_stable, get_nightly_version, get_stable_version},
 };
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 #[tauri::command]
 pub fn get_moonlight_branch(app_handle: AppHandle) -> MoonlightBranch {
@@ -39,19 +39,29 @@ pub fn set_moonlight_branch(app_handle: AppHandle, branch: MoonlightBranch) -> R
     Ok(())
 }
 
+fn installed_version_changed(app_handle: &AppHandle, version: Option<String>) {
+    app_handle
+        .emit_all("installed_version_changed", version)
+        .unwrap();
+}
+
 #[tauri::command]
 pub fn get_downloaded_moonlight(app_handle: AppHandle) -> Option<String> {
     let data_dir = get_data_dir(&app_handle);
     if data_dir.is_err() {
+        installed_version_changed(&app_handle, None);
         return None;
     }
 
     let version = data_dir.unwrap().join("version.txt");
     if !version.exists() {
+        installed_version_changed(&app_handle, None);
         return None;
     }
 
-    std::fs::read_to_string(version).ok()
+    let version = std::fs::read_to_string(version).ok();
+    installed_version_changed(&app_handle, version.clone());
+    version
 }
 
 #[tauri::command]
@@ -75,9 +85,12 @@ pub fn download_moonlight(app_handle: AppHandle, branch: MoonlightBranch) -> Res
     std::fs::create_dir_all(&dir)?;
 
     match branch {
-        MoonlightBranch::Stable => download_stable(version_txt, dir)?,
-        MoonlightBranch::Nightly => download_nightly(version_txt, dir)?,
+        MoonlightBranch::Stable => download_stable(version_txt.clone(), dir)?,
+        MoonlightBranch::Nightly => download_nightly(version_txt.clone(), dir)?,
     }
+
+    let installed_version = std::fs::read_to_string(version_txt)?;
+    installed_version_changed(&app_handle, Some(installed_version));
 
     Ok(())
 }

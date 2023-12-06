@@ -68,8 +68,11 @@ export default function Updater() {
         </select>
       )}
 
-      {branch != null && currentVersion != null && (
-        <span>Installed version: {preview(currentVersion)}</span>
+      {branch != null && (
+        <span>
+          Installed version:{" "}
+          {currentVersion == null ? "None" : preview(currentVersion)}
+        </span>
       )}
       {branch != null && latestVersion != null && (
         <span>Latest version: {preview(latestVersion)}</span>

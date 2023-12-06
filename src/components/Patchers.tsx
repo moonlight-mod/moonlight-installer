@@ -1,10 +1,14 @@
 import { invoke } from "@tauri-apps/api";
 import { DetectedInstall } from "../types";
 import React from "react";
+import { listen } from "@tauri-apps/api/event";
 
 function Install({ install }: { install: DetectedInstall }) {
   const [patched, setPatched] = React.useState<boolean | null>(null);
   const [locked, setLocked] = React.useState<boolean>(false);
+  const [installedVersion, setInstalledVersion] = React.useState<string | null>(
+    null
+  );
 
   React.useEffect(() => {
     async function updatePatched() {
@@ -13,6 +17,21 @@ function Install({ install }: { install: DetectedInstall }) {
     }
 
     updatePatched();
+  }, []);
+
+  // how the fuck do Tauri events work
+  React.useEffect(() => {
+    let unlisten: () => void = () => {};
+
+    listen("installed_version_changed", (event) => {
+      setInstalledVersion(event.payload as string | null);
+    }).then((unlistenFn) => {
+      unlisten = unlistenFn;
+    });
+
+    return () => {
+      unlisten();
+    };
   }, []);
 
   async function togglePatch() {
@@ -33,12 +52,13 @@ function Install({ install }: { install: DetectedInstall }) {
 
   return (
     <div className="install">
-      <h3>
-        Discord {install.branch}
-      </h3>
+      <h3>Discord {install.branch}</h3>
 
       {install != null && (
-        <button onClick={togglePatch} disabled={locked}>
+        <button
+          onClick={togglePatch}
+          disabled={locked || installedVersion == null}
+        >
           {patched ? "Unpatch" : "Patch"}
         </button>
       )}
@@ -59,7 +79,9 @@ export default function Patchers() {
 
   return (
     <div className="install-list">
-      {installs.map((install, i) => <Install install={install} key={i} />)}
+      {installs.map((install, i) => (
+        <Install install={install} key={i} />
+      ))}
     </div>
   );
 }

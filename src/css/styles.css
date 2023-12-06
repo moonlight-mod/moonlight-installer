@@ -58,6 +58,16 @@ button:hover {
   background-color: var(--color0);
 }
 
+button:disabled {
+  color: var(--fg);
+  outline: 2px solid var(--purple);
+  background-color: var(--color0);
+}
+
+button:disabled:hover {
+  cursor: not-allowed;
+}
+
 h3 {
   margin: 0;
 }
