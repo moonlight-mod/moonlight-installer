@@ -47,5 +47,5 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
-          name: moonlight-installer
+          name: moonlight-installer-${{ matrix.platform }}
           path: ${{ steps.parse-artifact-paths.outputs.artifactPaths }}
