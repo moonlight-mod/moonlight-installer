@@ -37,8 +37,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # JSON array to newline-delimited string
+      - name: Parse artifact paths
+        id: parse-artifact-paths
+        shell: bash
+        run: |
+          echo "::set-output name=artifactPaths::$(echo '${{ steps.build.outputs.artifactPaths }}' | jq -r '.[]')"
+
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
           name: moonlight-installer
-          path: ${{ steps.build.outputs.artifactPaths }}
+          path: ${{ steps.parse-artifact-paths.outputs.artifactPaths }}
