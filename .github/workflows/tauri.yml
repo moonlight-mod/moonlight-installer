@@ -20,6 +20,7 @@ jobs:
         with:
           node-version: 20
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
 
       - name: Install dependencies (Linux)
         if: matrix.platform == 'ubuntu-20.04'
@@ -39,5 +40,5 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
-          name: tauri-app
+          name: moonlight-installer
           path: ${{ steps.build.outputs.artifactPaths }}
