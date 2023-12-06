@@ -57,7 +57,7 @@ pub fn get_latest_moonlight_version(branch: MoonlightBranch) -> Option<String> {
 
 #[tauri::command]
 pub fn download_moonlight(app_handle: AppHandle, branch: MoonlightBranch) {
-    let dir = get_moonlight_dir(&app_handle).join("dist");
+    let dir = get_moonlight_dir().join("dist");
     let version_txt = get_data_dir(&app_handle).join("version.txt");
 
     if dir.exists() {

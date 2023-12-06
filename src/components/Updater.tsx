@@ -1,5 +1,5 @@
 import React from "react";
-import { MoonlightBranch } from "./types";
+import { MoonlightBranch } from "../types";
 import { invoke } from "@tauri-apps/api";
 
 export default function Updater() {

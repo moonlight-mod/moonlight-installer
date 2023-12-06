@@ -1,7 +1,5 @@
-use tauri::AppHandle;
-
 use crate::types::*;
-use std::path::{PathBuf};
+use std::path::PathBuf;
 
 use super::get_moonlight_dir;
 
@@ -116,7 +114,7 @@ pub fn is_install_patched(install: DetectedInstall) -> bool {
 }
 
 #[tauri::command]
-pub fn patch_install(app_handle: AppHandle, install: DetectedInstall) -> Result<(), Error> {
+pub fn patch_install(install: DetectedInstall) -> Result<(), Error> {
     // TODO: flatpak, etc whatever the fuck
     let app_dir = get_app_dir(install);
     let asar = app_dir.join("app.asar");
@@ -133,7 +131,7 @@ pub fn patch_install(app_handle: AppHandle, install: DetectedInstall) -> Result<
         json.to_string(),
     )?;
 
-    let moonlight_injector = get_moonlight_dir(&app_handle)
+    let moonlight_injector = get_moonlight_dir()
         .join("dist")
         .join("injector.js");
     let moonlight_injector_str = serde_json::to_string(&moonlight_injector).unwrap();

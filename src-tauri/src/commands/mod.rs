@@ -8,7 +8,7 @@ pub fn get_data_dir(app_handle: &AppHandle) -> PathBuf {
     app_handle.path_resolver().app_data_dir().unwrap()
 }
 
-pub fn get_moonlight_dir(app_handle: &AppHandle) -> PathBuf {
+pub fn get_moonlight_dir() -> PathBuf {
     // Reimplementation of electron's appdata stuff
     let dir = match std::env::consts::OS {
         "windows" => {

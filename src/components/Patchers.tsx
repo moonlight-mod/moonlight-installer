@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api";
-import { DetectedInstall } from "./types";
+import { DetectedInstall } from "../types";
 import React from "react";
 
 function Install({ install }: { install: DetectedInstall }) {

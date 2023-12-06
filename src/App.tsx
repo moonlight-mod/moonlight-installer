@@ -1,6 +1,5 @@
-import "./App.css";
-import Patchers from "./Patchers";
-import Updater from "./Updater";
+import Patchers from "./components/Patchers";
+import Updater from "./components/Updater";
 
 function App() {
   return (
