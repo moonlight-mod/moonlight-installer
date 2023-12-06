@@ -52,17 +52,18 @@ pub fn detect_installs() -> Vec<DetectedInstall> {
 
             installs
         }
+
         "macos" => {
             let apps_dirs = vec![
                 PathBuf::from("/Applications"),
-                PathBuf::from(std::env::var("HOME").unwrap()).join("Applications")
+                PathBuf::from(std::env::var("HOME").unwrap()).join("Applications"),
             ];
 
             let branch_names = vec![
                 "Discord",
                 "Discord PTB",
                 "Discord Canary",
-                "Discord Development"
+                "Discord Development",
             ];
 
             let mut installs = vec![];
@@ -76,7 +77,7 @@ pub fn detect_installs() -> Vec<DetectedInstall> {
                         "Discord Development" => Branch::Development,
                         _ => unreachable!(),
                     };
-                    
+
                     let macos_app_dir = apps_dir.join(format!("{}.app", branch_name));
 
                     if !macos_app_dir.exists() {
@@ -88,13 +89,15 @@ pub fn detect_installs() -> Vec<DetectedInstall> {
                     installs.push(DetectedInstall {
                         install_type: InstallType::MacOS,
                         branch,
-                        path: app_dir
+                        path: app_dir,
                     })
                 }
             }
 
             installs
-        },
+        }
+
+        // TODO: linux support
         "linux" => vec![],
         _ => vec![],
     }
@@ -104,7 +107,7 @@ fn get_app_dir(install: DetectedInstall) -> PathBuf {
     match std::env::consts::OS {
         "windows" => install.path.join("resources"),
         "macos" => install.path,
-        _ => todo!()
+        _ => todo!(),
     }
 }
 
@@ -126,14 +129,9 @@ pub fn patch_install(install: DetectedInstall) -> Result<(), Error> {
       "main": "./injector.js",
       "private": true
     });
-    std::fs::write(
-        app_dir.join("app/package.json"),
-        json.to_string(),
-    )?;
+    std::fs::write(app_dir.join("app/package.json"), json.to_string())?;
 
-    let moonlight_injector = get_moonlight_dir()
-        .join("dist")
-        .join("injector.js");
+    let moonlight_injector = get_moonlight_dir()?.join("dist").join("injector.js");
     let moonlight_injector_str = serde_json::to_string(&moonlight_injector).unwrap();
     let injector = format!(
         r#"require({}).inject(

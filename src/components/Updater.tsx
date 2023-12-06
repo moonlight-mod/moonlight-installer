@@ -9,7 +9,7 @@ export default function Updater() {
   );
   const [latestVersion, setLatestVersion] = React.useState<string | null>(null);
   const [locked, setLocked] = React.useState<boolean>(false);
-  const needsUpdate = latestVersion !== currentVersion
+  const needsUpdate = latestVersion !== currentVersion;
 
   React.useEffect(() => {
     async function updateBranch() {
@@ -37,6 +37,14 @@ export default function Updater() {
     if (branch != null) updateVersions();
   }, [branch]);
 
+  function preview(ver: string) {
+    if (ver.startsWith("v")) {
+      return ver;
+    } else {
+      return ver.slice(0, 7);
+    }
+  }
+
   return (
     <div
       style={{
@@ -60,7 +68,12 @@ export default function Updater() {
         </select>
       )}
 
-     
+      {branch != null && currentVersion != null && (
+        <span>Installed version: {preview(currentVersion)}</span>
+      )}
+      {branch != null && latestVersion != null && (
+        <span>Latest version: {preview(latestVersion)}</span>
+      )}
 
       {branch != null && needsUpdate && (
         <button
