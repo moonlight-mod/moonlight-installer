@@ -9,6 +9,7 @@ export default function Updater() {
   );
   const [latestVersion, setLatestVersion] = React.useState<string | null>(null);
   const [locked, setLocked] = React.useState<boolean>(false);
+  const needsUpdate = latestVersion !== currentVersion
 
   React.useEffect(() => {
     async function updateBranch() {
@@ -42,7 +43,7 @@ export default function Updater() {
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
-        alignItems: "flex-start"
+        alignItems: "center"
       }}
     >
       {branch != null && (
@@ -59,10 +60,9 @@ export default function Updater() {
         </select>
       )}
 
-      <span>Current: {currentVersion}</span>
-      <span>Latest: {latestVersion}</span>
+     
 
-      {branch != null && (
+      {branch != null && needsUpdate && (
         <button
           disabled={locked}
           onClick={async () => {
@@ -75,7 +75,7 @@ export default function Updater() {
             }
           }}
         >
-          Update
+          Update moonlight
         </button>
       )}
     </div>

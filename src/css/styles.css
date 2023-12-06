@@ -1,6 +1,62 @@
 :root {
-  width: 100vw;
-  height: 100vh;
   margin: 0;
   padding: 0;
+  overflow-x: hidden;
+
+  /* https://github.com/owozsh/amora/blob/main/colors/amora.vim#L30-L65 */
+  --fg: #DEDBEB;
+  --bg: #1a1a1a;
+
+  --purple: #b4a4de;
+
+  --color0: #28222d;
+
+  color: var(--fg);
+  background-color: var(--bg);
+  /* big long font family */
+  font-family: ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Arial,Noto Sans,sans-serif,Apple Color Emoji,Segoe UI Emoji,Segoe UI Symbol,Noto Color Emoji;
+}
+
+.container {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.install-list {
+  display: grid;
+  padding: 2rem;
+  gap: 3rem;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.install {
+  padding: 1rem;
+
+  border-radius: 1rem;
+  outline: 0.2rem solid var(--purple);
+}
+
+button {
+  background-color: var(--purple);
+  border: none;
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  padding: 0.6rem;
+
+
+  border-radius: 0.6rem;
+}
+
+button:hover {
+  color: var(--fg);
+  outline: 2px solid var(--purple);
+  background-color: var(--color0);
+}
+
+h3 {
+  margin: 0;
 }
