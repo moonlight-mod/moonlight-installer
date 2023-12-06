@@ -75,7 +75,7 @@ export default function Updater() {
             }
           }}
         >
-          Update Moonlight
+          Update moonlight
         </button>
       )}
     </div>
