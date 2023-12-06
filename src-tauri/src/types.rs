@@ -13,7 +13,7 @@ pub enum InstallType {
     Linux,
 }
 
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum Branch {
     Stable,
@@ -28,3 +28,15 @@ pub struct DetectedInstall {
     pub branch: Branch,
     pub path: PathBuf,
 }
+
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+pub struct Error {
+    pub message: String
+}
+
+impl From<std::io::Error> for Error {
+    fn from(value: std::io::Error) -> Self {
+        Error { message: value.to_string() }
+    }
+}
+

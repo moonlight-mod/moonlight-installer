@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use tauri::AppHandle;
+use tauri::{AppHandle, api::path::data_dir};
 
 pub mod patch;
 pub mod update;
@@ -15,8 +15,7 @@ pub fn get_moonlight_dir(app_handle: &AppHandle) -> PathBuf {
             let appdata = std::env::var("APPDATA").unwrap();
             PathBuf::from(appdata).join("moonlight-mod")
         }
-        // TODO
-        _ => get_data_dir(app_handle).join("moonlight"),
+        _ => data_dir().unwrap().join("moonlight-mod"),
     };
 
     if !dir.exists() {

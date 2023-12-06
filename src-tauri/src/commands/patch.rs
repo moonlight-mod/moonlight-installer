@@ -1,7 +1,7 @@
 use tauri::AppHandle;
 
 use crate::types::*;
-use std::path::PathBuf;
+use std::path::{PathBuf};
 
 use super::get_moonlight_dir;
 
@@ -54,24 +54,74 @@ pub fn detect_installs() -> Vec<DetectedInstall> {
 
             installs
         }
-        // TODO
-        "macos" => vec![],
+        "macos" => {
+            let apps_dirs = vec![
+                PathBuf::from("/Applications"),
+                PathBuf::from(std::env::var("HOME").unwrap()).join("Applications")
+            ];
+
+            let branch_names = vec![
+                "Discord",
+                "Discord PTB",
+                "Discord Canary",
+                "Discord Development"
+            ];
+
+            let mut installs = vec![];
+
+            for apps_dir in apps_dirs {
+                for branch_name in branch_names.clone() {
+                    let branch = match branch_name {
+                        "Discord" => Branch::Stable,
+                        "Discord PTB" => Branch::PTB,
+                        "Discord Canary" => Branch::Canary,
+                        "Discord Development" => Branch::Development,
+                        _ => unreachable!(),
+                    };
+                    
+                    let macos_app_dir = apps_dir.join(format!("{}.app", branch_name));
+
+                    if !macos_app_dir.exists() {
+                        continue;
+                    }
+
+                    let app_dir = macos_app_dir.join("Contents/Resources");
+
+                    installs.push(DetectedInstall {
+                        install_type: InstallType::MacOS,
+                        branch,
+                        path: app_dir
+                    })
+                }
+            }
+
+            installs
+        },
         "linux" => vec![],
         _ => vec![],
     }
 }
 
-#[tauri::command]
-pub fn is_install_patched(install: DetectedInstall) -> bool {
-    !install.path.join("resources/app.asar").exists()
+fn get_app_dir(install: DetectedInstall) -> PathBuf {
+    match std::env::consts::OS {
+        "windows" => install.path.join("resources"),
+        "macos" => install.path,
+        _ => todo!()
+    }
 }
 
 #[tauri::command]
-pub fn patch_install(app_handle: AppHandle, install: DetectedInstall) {
-    // TODO: macos, flatpak, etc whatever the fuck
-    let asar = install.path.join("resources/app.asar");
-    std::fs::rename(&asar, asar.with_file_name("_app.asar")).unwrap();
-    std::fs::create_dir(install.path.join("resources/app")).unwrap();
+pub fn is_install_patched(install: DetectedInstall) -> bool {
+    !get_app_dir(install).join("app.asar").exists()
+}
+
+#[tauri::command]
+pub fn patch_install(app_handle: AppHandle, install: DetectedInstall) -> Result<(), Error> {
+    // TODO: flatpak, etc whatever the fuck
+    let app_dir = get_app_dir(install);
+    let asar = app_dir.join("app.asar");
+    std::fs::rename(&asar, asar.with_file_name("_app.asar"))?;
+    std::fs::create_dir(app_dir.join("app"))?;
 
     let json = serde_json::json!({
       "name": "discord",
@@ -79,10 +129,9 @@ pub fn patch_install(app_handle: AppHandle, install: DetectedInstall) {
       "private": true
     });
     std::fs::write(
-        install.path.join("resources/app/package.json"),
+        app_dir.join("app/package.json"),
         json.to_string(),
-    )
-    .unwrap();
+    )?;
 
     let moonlight_injector = get_moonlight_dir(&app_handle)
         .join("dist")
@@ -95,12 +144,15 @@ pub fn patch_install(app_handle: AppHandle, install: DetectedInstall) {
 "#,
         moonlight_injector_str
     );
-    std::fs::write(install.path.join("resources/app/injector.js"), injector).unwrap();
+    std::fs::write(app_dir.join("app/injector.js"), injector)?;
+    Ok(())
 }
 
 #[tauri::command]
-pub fn unpatch_install(install: DetectedInstall) {
-    let asar = install.path.join("resources/_app.asar");
-    std::fs::rename(&asar, asar.with_file_name("app.asar")).unwrap();
-    std::fs::remove_dir_all(install.path.join("resources/app")).unwrap();
+pub fn unpatch_install(install: DetectedInstall) -> Result<(), Error> {
+    let app_dir = get_app_dir(install);
+    let asar = app_dir.join("_app.asar");
+    std::fs::rename(&asar, asar.with_file_name("app.asar"))?;
+    std::fs::remove_dir_all(app_dir.join("app"))?;
+    Ok(())
 }
