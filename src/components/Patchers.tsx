@@ -23,6 +23,9 @@ function Install({ install }: { install: DetectedInstall }) {
   React.useEffect(() => {
     let unlisten: () => void = () => {};
 
+    invoke("get_downloaded_moonlight").then((result) => {
+      setInstalledVersion(result as string | null);
+    });
     listen("installed_version_changed", (event) => {
       setInstalledVersion(event.payload as string | null);
     }).then((unlistenFn) => {
