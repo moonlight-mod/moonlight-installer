@@ -32,10 +32,10 @@ function Install({ install }: { install: DetectedInstall }) {
   }
 
   return (
-    <div>
-      <span>
-        {install.branch} - {install.path}
-      </span>
+    <div className="install">
+      <h3>
+        Discord {install.branch}
+      </h3>
 
       {install != null && (
         <button onClick={togglePatch} disabled={locked}>
@@ -57,5 +57,9 @@ export default function Patchers() {
     updateInstalls();
   }, []);
 
-  return installs.map((install, i) => <Install install={install} key={i} />);
+  return (
+    <div className="install-list">
+      {installs.map((install, i) => <Install install={install} key={i} />)}
+    </div>
+  );
 }
