@@ -31,6 +31,13 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build
+        id: build
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: tauri-app
+          path: ${{ steps.build.outputs.artifactPaths }}
