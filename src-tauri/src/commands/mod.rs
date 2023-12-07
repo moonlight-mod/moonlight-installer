@@ -6,9 +6,15 @@ pub mod patch;
 pub mod update;
 
 pub fn get_data_dir(app_handle: &AppHandle) -> Result<PathBuf, Error> {
-    app_handle.path_resolver().app_data_dir().ok_or(Error {
+    let dir = app_handle.path_resolver().app_data_dir().ok_or(Error {
         message: "could not get data dir".to_string(),
-    })
+    })?;
+
+    if !dir.exists() {
+        std::fs::create_dir_all(&dir)?;
+    }
+
+    Ok(dir)
 }
 
 pub fn get_moonlight_dir() -> Result<PathBuf, Error> {
