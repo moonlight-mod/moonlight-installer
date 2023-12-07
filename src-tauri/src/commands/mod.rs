@@ -1,4 +1,4 @@
-use crate::types::Error;
+use crate::types::{Error, ErrorCode};
 use std::path::PathBuf;
 use tauri::AppHandle;
 
@@ -8,6 +8,7 @@ pub mod update;
 pub fn get_data_dir(app_handle: &AppHandle) -> Result<PathBuf, Error> {
     let dir = app_handle.path_resolver().app_data_dir().ok_or(Error {
         message: "could not get data dir".to_string(),
+        code: ErrorCode::Unknown,
     })?;
 
     if !dir.exists() {

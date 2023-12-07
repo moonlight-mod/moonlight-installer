@@ -6,7 +6,6 @@ mod commands;
 mod types;
 mod version;
 
-
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
@@ -14,6 +13,7 @@ fn main() {
             commands::patch::is_install_patched,
             commands::patch::patch_install,
             commands::patch::unpatch_install,
+            commands::patch::kill_discord,
             commands::update::get_moonlight_branch,
             commands::update::set_moonlight_branch,
             commands::update::get_downloaded_moonlight,
@@ -23,9 +23,9 @@ fn main() {
         .setup(|app| {
             #[cfg(debug_assertions)] // only include this code on debug builds
             {
-              let window = app.get_window("main").unwrap();
-              window.open_devtools();
-              window.close_devtools();
+                let window = app.get_window("main").unwrap();
+                window.open_devtools();
+                window.close_devtools();
             }
             Ok(())
         })

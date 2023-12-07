@@ -1,6 +1,7 @@
 import React from "react";
 import { MoonlightBranch } from "../types";
 import { invoke } from "@tauri-apps/api";
+import { emit } from "@tauri-apps/api/event";
 
 export default function Updater() {
   const [branch, setBranch] = React.useState<MoonlightBranch | null>(null);
@@ -85,6 +86,8 @@ export default function Updater() {
             setLocked(true);
             try {
               await invoke("download_moonlight", { branch });
+            } catch (e) {
+              await emit("error", e);
             } finally {
               setLocked(false);
               await updateVersions();

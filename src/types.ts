@@ -21,3 +21,13 @@ export type DetectedInstall = {
   branch: Branch;
   path: string;
 };
+
+export enum ErrorCode {
+  Unknown = "Unknown",
+  WindowsFileLock = "WindowsFileLock"
+}
+
+export type MoonlightError = {
+  code: ErrorCode;
+  message: string;
+};

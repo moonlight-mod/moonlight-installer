@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api";
 import { DetectedInstall } from "../types";
 import React from "react";
-import { listen } from "@tauri-apps/api/event";
+import { emit, listen } from "@tauri-apps/api/event";
 
 function Install({ install }: { install: DetectedInstall }) {
   const [patched, setPatched] = React.useState<boolean | null>(null);
@@ -21,19 +21,16 @@ function Install({ install }: { install: DetectedInstall }) {
 
   // how the fuck do Tauri events work
   React.useEffect(() => {
-    let unlisten: () => void = () => {};
-
     invoke("get_downloaded_moonlight").then((result) => {
       setInstalledVersion(result as string | null);
     });
-    listen("installed_version_changed", (event) => {
+
+    let unlisten = listen("installed_version_changed", (event) => {
       setInstalledVersion(event.payload as string | null);
-    }).then((unlistenFn) => {
-      unlisten = unlistenFn;
     });
 
     return () => {
-      unlisten();
+      unlisten.then((f) => f());
     };
   }, []);
 
@@ -48,6 +45,8 @@ function Install({ install }: { install: DetectedInstall }) {
       }
 
       setPatched(!patched);
+    } catch (e) {
+      await emit("error", e);
     } finally {
       setLocked(false);
     }

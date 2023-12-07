@@ -1,15 +1,19 @@
-:root {
+body,
+html {
   margin: 0;
   padding: 0;
-  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+}
 
+:root {
   /* https://github.com/owozsh/amora/blob/main/colors/amora.vim#L30-L65 */
   --fg: #dedbeb;
   --bg: #1a1a1a;
-
   --purple: #b4a4de;
-
   --color0: #28222d;
+  --bglight: #292929;
+  --red: #fb5c8e;
 
   color: var(--fg);
   background-color: var(--bg);
@@ -22,6 +26,9 @@
 .container {
   width: 100vw;
   height: 100vh;
+  margin: 0;
+  padding: 0;
+
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -70,4 +77,28 @@ button:disabled:hover {
 
 h3 {
   margin: 0;
+}
+
+.error-box {
+  margin: 2rem 3rem;
+  background-color: var(--bglight);
+  outline: 2px solid var(--red);
+  padding: 1rem;
+  border-radius: 0.6rem;
+}
+
+.error-box-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.error-box button {
+  margin-top: 0;
+  background-color: var(--red);
+}
+
+.error-box button:hover {
+  background-color: var(--color0);
+  outline: 2px solid var(--red);
 }

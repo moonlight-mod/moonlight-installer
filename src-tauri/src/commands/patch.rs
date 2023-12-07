@@ -152,3 +152,38 @@ pub fn unpatch_install(install: DetectedInstall) -> Result<(), Error> {
     std::fs::remove_dir_all(app_dir.join("app"))?;
     Ok(())
 }
+
+#[tauri::command]
+pub fn kill_discord() {
+    let os = std::env::consts::OS;
+    let names = match os {
+        "windows" => vec![
+            "Discord",
+            "DiscordPTB",
+            "DiscordCanary",
+            "DiscordDevelopment",
+        ],
+
+        _ => vec![],
+    };
+
+    for name in names {
+        match os {
+            "windows" => {
+                std::process::Command::new("taskkill")
+                    .args(["/IM", &format!("{}.exe", name)])
+                    .output()
+                    .unwrap();
+            }
+
+            "macos" | "linux" => {
+                std::process::Command::new("killall")
+                    .args([name])
+                    .output()
+                    .unwrap();
+            }
+
+            _ => {}
+        }
+    }
+}

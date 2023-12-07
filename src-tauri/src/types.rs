@@ -42,14 +42,25 @@ pub struct GitHubRelease {
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
+pub enum ErrorCode {
+    Unknown,
+    WindowsFileLock,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct Error {
     pub message: String,
+    pub code: ErrorCode,
 }
 
 impl From<std::io::Error> for Error {
     fn from(value: std::io::Error) -> Self {
         Error {
             message: value.to_string(),
+            code: match (value.raw_os_error(), std::env::consts::OS) {
+                (Some(32), "windows") => ErrorCode::WindowsFileLock,
+                _ => ErrorCode::Unknown,
+            },
         }
     }
 }
@@ -58,6 +69,7 @@ impl From<Box<dyn std::error::Error>> for Error {
     fn from(value: Box<dyn std::error::Error>) -> Self {
         Error {
             message: value.to_string(),
+            code: ErrorCode::Unknown,
         }
     }
 }
