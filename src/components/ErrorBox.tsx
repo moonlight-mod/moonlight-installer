@@ -1,7 +1,7 @@
-import { listen } from "@tauri-apps/api/event";
-import { MoonlightError, ErrorCode } from "../types";
+import { MoonlightError, ErrorCode, Branch } from "../types";
 import React from "react";
 import { invoke } from "@tauri-apps/api";
+import useEvent from "../util";
 
 function ErrorBoxInner({
   header,
@@ -26,16 +26,19 @@ function ErrorBoxInner({
 
 export default function ErrorBox() {
   const [error, setError] = React.useState<MoonlightError | null>(null);
+  const [patching, setPatching] = React.useState<Branch | null>(null);
 
-  React.useEffect(() => {
-    let unlisten = listen("error", (event) => {
-      setError(event.payload as MoonlightError);
-    });
+  useEvent<MoonlightError>("error", (err) => {
+    setError(err);
+  });
 
-    return () => {
-      unlisten.then((f) => f());
-    };
-  }, []);
+  useEvent<Branch>("patching_install", (branch) => {
+    setPatching(branch);
+  });
+
+  useEvent<Branch>("unpatching_install", (branch) => {
+    setPatching(branch);
+  });
 
   if (error == null) return null;
 
@@ -56,10 +59,11 @@ export default function ErrorBox() {
         <button
           onClick={async () => {
             setError(null);
-            // This is flawed in that it'll kill *all* Discord processes, not just the one we patched
-            // I'd need to add a store of some kind to see what we tried to patch, which I am too fucking
-            // lazy to do, so you get this instead
-            await invoke("kill_discord");
+            if (patching != null) {
+              await invoke("kill_discord", {
+                branch: patching
+              });
+            }
           }}
         >
           Force close Discord

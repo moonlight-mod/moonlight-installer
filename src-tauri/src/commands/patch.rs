@@ -1,3 +1,5 @@
+use tauri::{AppHandle, Manager};
+
 use crate::types::*;
 use std::path::PathBuf;
 
@@ -117,7 +119,11 @@ pub fn is_install_patched(install: DetectedInstall) -> bool {
 }
 
 #[tauri::command]
-pub fn patch_install(install: DetectedInstall) -> Result<(), Error> {
+pub fn patch_install(app_handle: AppHandle, install: DetectedInstall) -> Result<(), Error> {
+    app_handle
+        .emit_all("patching_install", install.branch)
+        .unwrap();
+
     // TODO: flatpak, etc whatever the fuck
     let app_dir = get_app_dir(install);
     let asar = app_dir.join("app.asar");
@@ -145,45 +151,45 @@ pub fn patch_install(install: DetectedInstall) -> Result<(), Error> {
 }
 
 #[tauri::command]
-pub fn unpatch_install(install: DetectedInstall) -> Result<(), Error> {
+pub fn unpatch_install(app_handle: AppHandle, install: DetectedInstall) -> Result<(), Error> {
+    app_handle
+        .emit_all("unpatching_install", install.branch)
+        .unwrap();
+
     let app_dir = get_app_dir(install);
     let asar = app_dir.join("_app.asar");
     std::fs::rename(&asar, asar.with_file_name("app.asar"))?;
     std::fs::remove_dir_all(app_dir.join("app"))?;
+
     Ok(())
 }
 
 #[tauri::command]
-pub fn kill_discord() {
+pub fn kill_discord(branch: Branch) {
     let os = std::env::consts::OS;
-    let names = match os {
-        "windows" => vec![
-            "Discord",
-            "DiscordPTB",
-            "DiscordCanary",
-            "DiscordDevelopment",
-        ],
-
-        _ => vec![],
+    let name = match (branch, os) {
+        (Branch::Stable, "windows") => "Discord",
+        (Branch::PTB, "windows") => "DiscordPTB",
+        (Branch::Canary, "windows") => "DiscordCanary",
+        (Branch::Development, "windows") => "DiscordDevelopment",
+        _ => return,
     };
 
-    for name in names {
-        match os {
-            "windows" => {
-                std::process::Command::new("taskkill")
-                    .args(["/IM", &format!("{}.exe", name)])
-                    .output()
-                    .unwrap();
-            }
-
-            "macos" | "linux" => {
-                std::process::Command::new("killall")
-                    .args([name])
-                    .output()
-                    .unwrap();
-            }
-
-            _ => {}
+    match os {
+        "windows" => {
+            std::process::Command::new("taskkill")
+                .args(["/IM", &format!("{}.exe", name)])
+                .output()
+                .unwrap();
         }
+
+        "macos" | "linux" => {
+            std::process::Command::new("killall")
+                .args([name])
+                .output()
+                .unwrap();
+        }
+
+        _ => {}
     }
 }
