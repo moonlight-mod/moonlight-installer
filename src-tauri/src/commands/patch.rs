@@ -99,8 +99,40 @@ pub fn detect_installs() -> Vec<DetectedInstall> {
             installs
         }
 
-        // TODO: linux support
-        "linux" => vec![],
+        "linux" => {
+            let home = std::env::var("HOME").unwrap();
+            let local_share = PathBuf::from(home).join(".local/share");
+
+            let dirs = vec![
+                "Discord",
+                "DiscordPTB",
+                "DiscordCanary",
+                "DiscordDevelopment",
+            ];
+
+            let mut installs = vec![];
+            for dir in dirs {
+                let branch = match dir {
+                    "Discord" => Branch::Stable,
+                    "DiscordPTB" => Branch::PTB,
+                    "DiscordCanary" => Branch::Canary,
+                    "DiscordDevelopment" => Branch::Development,
+                    _ => unreachable!(),
+                };
+
+                let path = local_share.join(dir);
+                if path.exists() {
+                    installs.push(DetectedInstall {
+                        install_type: InstallType::Linux,
+                        branch,
+                        path,
+                    });
+                }
+            }
+
+            installs
+        }
+
         _ => vec![],
     }
 }
@@ -109,6 +141,7 @@ fn get_app_dir(install: DetectedInstall) -> PathBuf {
     match std::env::consts::OS {
         "windows" => install.path.join("resources"),
         "macos" => install.path,
+        "linux" => install.path.join("resources"),
         _ => todo!(),
     }
 }
