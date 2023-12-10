@@ -48,7 +48,7 @@ jobs:
             echo "artifactPaths<<EOF"
             echo '${{ steps.build.outputs.artifactPaths }}' | jq -r '.[]'
             echo "EOF"
-          } >> "$GITHUB_ENV"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v2
