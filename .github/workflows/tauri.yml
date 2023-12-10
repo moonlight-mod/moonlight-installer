@@ -46,7 +46,7 @@ jobs:
         run: |
           {
             echo "artifactPaths<<EOF"
-            echo "${{ steps.build.outputs.artifactPaths }}" | jq -r '.[]'
+            echo '${{ steps.build.outputs.artifactPaths }}' | jq -r '.[]'
             echo "EOF"
           } >> "$GITHUB_ENV"
 
