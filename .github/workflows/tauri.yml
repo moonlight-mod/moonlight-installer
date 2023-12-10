@@ -44,7 +44,11 @@ jobs:
         id: parse-artifact-paths
         shell: bash
         run: |
-          echo "::set-output name=artifactPaths::$(echo '${{ steps.build.outputs.artifactPaths }}' | jq -r '.[]')"
+          {
+            echo "artifactPaths<<EOF"
+            echo "${{ steps.build.outputs.artifactPaths }}" | jq -r '.[]'
+            echo "EOF"
+          } >> "$GITHUB_ENV"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v2
