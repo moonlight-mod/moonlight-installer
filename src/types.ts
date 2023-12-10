@@ -24,7 +24,8 @@ export type DetectedInstall = {
 
 export enum ErrorCode {
   Unknown = "Unknown",
-  WindowsFileLock = "WindowsFileLock"
+  WindowsFileLock = "WindowsFileLock",
+  MacOSNoPermission = "MacOSNoPermission"
 }
 
 export type MoonlightError = {

@@ -45,6 +45,7 @@ pub struct GitHubRelease {
 pub enum ErrorCode {
     Unknown,
     WindowsFileLock,
+    MacOSNoPermission
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
@@ -59,6 +60,7 @@ impl From<std::io::Error> for Error {
             message: value.to_string(),
             code: match (value.raw_os_error(), std::env::consts::OS) {
                 (Some(32), "windows") => ErrorCode::WindowsFileLock,
+                (Some(1), "macos") => ErrorCode::MacOSNoPermission,
                 _ => ErrorCode::Unknown,
             },
         }
