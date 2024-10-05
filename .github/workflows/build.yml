@@ -30,6 +30,8 @@ jobs:
           chmod +x ./appimagetool
       - name: Install musl-gcc
         run: sudo apt-get install -y musl-tools
+      - name: Install cargo-appimage
+        run: cargo install cargo-appimage
 
       - name: Build
         run: ./build-linux.sh
