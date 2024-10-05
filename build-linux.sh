@@ -13,4 +13,7 @@ if [ -d ./target/appimage ]; then
   rm -rf ./target/appimage
 fi
 
+cargo build --release --target x86_64-unknown-linux-musl
+# ???
+cp ./target/x86_64-unknown-linux-musl/release/moonlight-installer ./target/release/moonlight-installer
 cargo appimage --target x86_64-unknown-linux-musl
