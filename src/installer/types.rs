@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{fmt::Display, path::PathBuf};
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MoonlightBranch {
@@ -13,13 +13,24 @@ pub enum InstallType {
     Linux,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum Branch {
     Stable,
     PTB,
     Canary,
     Development,
+}
+
+impl Display for Branch {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Branch::Stable => write!(f, "Stable"),
+            Branch::PTB => write!(f, "PTB"),
+            Branch::Canary => write!(f, "Canary"),
+            Branch::Development => write!(f, "Development"),
+        }
+    }
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
@@ -34,6 +45,7 @@ pub struct DetectedInstall {
 pub struct InstallInfo {
     pub install: DetectedInstall,
     pub patched: bool,
+    pub has_config: bool,
 }
 
 // Lot more in here but idc

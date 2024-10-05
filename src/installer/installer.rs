@@ -1,4 +1,7 @@
-use super::{types::*, util::get_moonlight_dir};
+use super::{
+    types::*,
+    util::{get_branch_config, get_download_dir},
+};
 use std::path::PathBuf;
 
 const USER_AGENT: &str =
@@ -9,9 +12,6 @@ const ARTIFACT_NAME: &str = "dist.tar.gz";
 const NIGHTLY_REF_URL: &str = "https://moonlight-mod.github.io/moonlight/ref";
 const NIGHTLY_DIST_URL: &str = "https://moonlight-mod.github.io/moonlight/dist.tar.gz";
 
-const VERSION_TXT: &str = "installed_version.txt";
-const DOWNLOAD_DIR: &str = "dist";
-
 const PATCHED_ASAR: &str = "_app.asar";
 
 pub struct Installer;
@@ -21,28 +21,8 @@ impl Installer {
         Installer {}
     }
 
-    pub fn get_downloaded_moonlight(&self) -> Option<String> {
-        let moonlight_dir = get_moonlight_dir();
-        let version_path = moonlight_dir.join(VERSION_TXT);
-
-        if !version_path.exists() {
-            return None;
-        }
-
-        std::fs::read_to_string(version_path)
-            .ok()
-            .map(|version| version.trim().to_string())
-    }
-
-    fn set_downloaded_moonlight(&self, version: &str) -> InstallerResult<()> {
-        let moonlight_dir = get_moonlight_dir();
-        let version_path = moonlight_dir.join(VERSION_TXT);
-        std::fs::write(version_path, version)?;
-        Ok(())
-    }
-
     pub fn download_moonlight(&self, branch: MoonlightBranch) -> InstallerResult<String> {
-        let dir = get_moonlight_dir().join(DOWNLOAD_DIR);
+        let dir = get_download_dir();
 
         if dir.exists() {
             std::fs::remove_dir_all(&dir)?;
@@ -71,7 +51,6 @@ impl Installer {
         let mut archive = tar::Archive::new(flate2::read::GzDecoder::new(resp));
 
         archive.unpack(dir)?;
-        self.set_downloaded_moonlight(&release.name)?;
         Ok(release.name)
     }
 
@@ -80,7 +59,6 @@ impl Installer {
         let resp = reqwest::blocking::get(NIGHTLY_DIST_URL)?;
         let mut archive = tar::Archive::new(flate2::read::GzDecoder::new(resp));
         archive.unpack(dir)?;
-        self.set_downloaded_moonlight(&version)?;
         Ok(version)
     }
 
@@ -119,7 +97,13 @@ impl Installer {
                 .into_iter()
                 .map(|install| {
                     let patched = self.is_install_patched(install.clone()).unwrap_or(false);
-                    InstallInfo { install, patched }
+                    let has_config = get_branch_config(install.branch).exists();
+
+                    InstallInfo {
+                        install,
+                        patched,
+                        has_config,
+                    }
                 })
                 .collect()
         })
@@ -283,7 +267,7 @@ impl Installer {
         });
         std::fs::write(app_dir.join("app/package.json"), json.to_string())?;
 
-        let moonlight_injector = get_moonlight_dir().join(DOWNLOAD_DIR).join("injector.js");
+        let moonlight_injector = get_download_dir().join("injector.js");
         let moonlight_injector_str = serde_json::to_string(&moonlight_injector).unwrap();
         let injector = format!(
             r#"require({}).inject(
@@ -302,5 +286,18 @@ impl Installer {
         std::fs::rename(&asar, asar.with_file_name("app.asar"))?;
         std::fs::remove_dir_all(app_dir.join("app"))?;
         Ok(())
+    }
+
+    pub fn reset_config(&self, branch: Branch) {
+        let config = get_branch_config(branch);
+        let new_name = format!(
+            "{}-backup-{}.json",
+            config.file_stem().unwrap().to_string_lossy(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+        );
+        std::fs::rename(&config, config.with_file_name(new_name)).ok();
     }
 }

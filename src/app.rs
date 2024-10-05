@@ -4,14 +4,13 @@ use crate::{
     config::Config,
     installer::{
         types::*,
-        util::{branch_desc, branch_name},
+        util::{branch_desc, branch_name, get_download_dir},
     },
     logic::{app_logic_thread, LogicCommand, LogicResponse},
 };
 
 #[derive(Debug, Default)]
 pub struct AppState {
-    downloaded_version: Option<Option<String>>,
     latest_version: Option<String>,
     installs: Option<Vec<InstallInfo>>,
 
@@ -26,6 +25,7 @@ pub struct AppState {
 #[derive(serde::Deserialize, serde::Serialize, Default, Debug)]
 pub struct App {
     config: Config,
+    downloaded_version: Option<String>,
 
     // Don't know how to clean up these skips lol
     #[serde(skip)]
@@ -36,6 +36,15 @@ pub struct App {
     state: AppState,
 }
 
+// https://github.com/rust-lang/rustfmt/issues/3863
+const PATCH_TOOLIP: &str = "Download moonlight first to patch a Discord installation.";
+const RESET_CONFIG_TOOLTIP: &str =
+    "Backs up and removes the moonlight config file for this Discord installation.";
+
+const WINDOWS_FILE_LOCK: &str = "Discord is currently open, which locks moonlight's ability to modify its files. Please completely close Discord and make sure it does not appear in the taskbar.\nAlternatively, click the button below to attempt to close Discord forcefully. This will disconnect you from any voice calls you are in and may cause issues.";
+const MACOS_NO_PERMISSION: &str = "moonlight is unable to modify your Discord installation. This is because your MacOS system privacy settings doesn't allow us to do so.\nYou can fix this via a pop-up you should've gotten, or by going to System Settings > Privacy & Security > App Management and allowing moonlight installer.";
+const NETWORK_FAILED: &str = "moonlight is unable to download required files, likely due to a network issue. Please check your internet connection and try again.";
+
 impl App {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         let mut app: App = if let Some(storage) = cc.storage {
@@ -43,6 +52,11 @@ impl App {
         } else {
             Default::default()
         };
+
+        // Jank place to have this
+        if !get_download_dir().exists() {
+            app.downloaded_version = None;
+        }
 
         let (main_tx, logic_rx) = flume::unbounded::<LogicCommand>();
         let (logic_tx, main_rx) = flume::unbounded::<LogicResponse>();
@@ -55,7 +69,6 @@ impl App {
         app.tx = Some(main_tx);
         app.rx = Some(main_rx);
 
-        app.send(LogicCommand::GetDownloadedVersion);
         app.send(LogicCommand::GetLatestVersion(app.config.branch));
         app.send(LogicCommand::GetInstalls);
 
@@ -72,11 +85,6 @@ impl App {
                     self.state.installs = Some(installs);
                 }
 
-                LogicResponse::DownloadedVersion(version) => {
-                    log::info!("Downloaded version: {:?}", version);
-                    self.state.downloaded_version = Some(version);
-                }
-
                 LogicResponse::LatestVersion(version) => {
                     log::info!("Latest version: {:?}", version);
                     if let Ok(version) = version {
@@ -91,10 +99,10 @@ impl App {
                 LogicResponse::UpdateComplete(version) => {
                     log::info!("Update complete: {:?}", version);
                     if let Ok(version) = version {
-                        self.state.downloaded_version = Some(Some(version));
+                        self.downloaded_version = Some(version);
                         self.state.downloading_error = None;
                     } else {
-                        self.state.downloaded_version = Some(None);
+                        self.downloaded_version = None;
                         self.state.downloading_error = version.err();
                     }
                     self.state.downloading = false;
@@ -152,12 +160,7 @@ impl App {
 
         match err.code {
             ErrorCode::WindowsFileLock => {
-                ui.label(
-                    "Discord is currently open, which locks moonlight's ability to modify its files. Please completely close Discord and make sure it does not appear in the taskbar."
-                );
-                ui.label(
-                    "Alternatively, click the button below to attempt to close Discord forcefully. This will disconnect you from any voice calls you are in and may cause issues."
-                );
+                ui.label(WINDOWS_FILE_LOCK);
 
                 if ui.button("Force close Discord").clicked() {
                     if let Some(branch) = self.state.patching_branch {
@@ -167,13 +170,11 @@ impl App {
             }
 
             ErrorCode::MacOSNoPermission => {
-                ui.label("moonlight is unable to modify your Discord installation. This is because your MacOS system privacy settings doesn't allow us to do so.");
-                ui.label("You can fix this via a pop-up you should've gotten, or by going to System Settings > Privacy & Security > App Management and allowing moonlight installer.");
+                ui.label(MACOS_NO_PERMISSION);
             }
 
             ErrorCode::NetworkFailed => {
-                ui.label("moonlight is unable to download required files, likely due to a network issue.");
-                ui.label("Please check your internet connection and try again.");
+                ui.label(NETWORK_FAILED);
             }
 
             _ => {
@@ -235,24 +236,23 @@ impl eframe::App for App {
                         });
                         ui.horizontal(|ui| {
                             ui.label("Downloaded version:");
-                            if let Some(version) = &self.state.downloaded_version {
-                                ui.label(version.as_deref().unwrap_or("None"));
+                            if let Some(version) = &self.downloaded_version {
+                                ui.label(version);
                             } else {
-                                ui.spinner();
+                                ui.label("None");
                             }
                         });
 
-                        if self.state.downloading
-                            || self.state.downloaded_version.is_none()
-                            || self.state.latest_version.is_none()
-                            || self.state.downloaded_version
-                                == Some(self.state.latest_version.clone())
-                        {
-                            ui.disable();
-                        }
-
                         ui.horizontal(|ui| {
-                            if ui.button("Download").clicked() {
+                            let can_download = !self.state.downloading
+                                && self.state.latest_version.is_some()
+                                && (self.downloaded_version.is_none()
+                                    || self.downloaded_version != self.state.latest_version);
+
+                            if ui
+                                .add_enabled(can_download, egui::Button::new("Download"))
+                                .clicked()
+                            {
                                 self.state.downloading = true;
                                 self.state.downloading_error = None;
                                 self.send(LogicCommand::UpdateMoonlight(self.config.branch));
@@ -273,10 +273,6 @@ impl eframe::App for App {
                             self.draw_error(ui, err);
                         }
 
-                        if self.state.patching {
-                            ui.disable();
-                        }
-
                         if self.state.installs.is_none() {
                             ui.spinner();
                             return;
@@ -285,23 +281,48 @@ impl eframe::App for App {
                         // lmao this is so jank I hate the borrow checker
                         let mut should_patch = Vec::new();
                         let mut should_unpatch = Vec::new();
+                        let mut should_reset_config = Vec::new();
 
-                        for install in self.state.installs.as_ref().unwrap() {
-                            ui.horizontal(|ui| {
+                        egui::Grid::new("install_grid").show(ui, |ui| {
+                            for install in self.state.installs.as_ref().unwrap() {
+                                let patch_button = egui::Button::new(if install.patched {
+                                    "Unpatch"
+                                } else {
+                                    "Patch"
+                                });
+                                let can_patch =
+                                    !self.state.patching && self.downloaded_version.is_some();
+
+                                let reset_config_button = egui::Button::new("Reset config");
+                                let can_reset_config = install.has_config;
+
                                 ui.label(format!("{:?}", install.install.branch))
                                     .on_hover_text(install.install.path.to_string_lossy());
 
-                                if install.patched {
-                                    if ui.button("Unpatch").clicked() {
+                                let patch_clicked = ui
+                                    .add_enabled(can_patch, patch_button)
+                                    .on_disabled_hover_text(PATCH_TOOLIP)
+                                    .clicked();
+
+                                if patch_clicked {
+                                    if install.patched {
                                         should_unpatch.push(install.install.clone());
-                                    }
-                                } else {
-                                    if ui.button("Patch").clicked() {
+                                    } else {
                                         should_patch.push(install.install.clone());
                                     }
                                 }
-                            });
-                        }
+
+                                let reset_config_clicked = ui
+                                    .add_enabled(can_reset_config, reset_config_button)
+                                    .on_hover_text(RESET_CONFIG_TOOLTIP)
+                                    .clicked();
+                                if reset_config_clicked {
+                                    should_reset_config.push(install.install.branch);
+                                }
+
+                                ui.end_row();
+                            }
+                        });
 
                         for install in should_patch {
                             self.state.patching = true;
@@ -314,6 +335,17 @@ impl eframe::App for App {
                             self.state.patching_branch = Some(install.branch);
                             self.state.patching_error = None;
                             self.send(LogicCommand::UnpatchInstall(install));
+                        }
+                        for branch in should_reset_config {
+                            self.send(LogicCommand::ResetConfig(branch));
+                            self.state
+                                .installs
+                                .as_mut()
+                                .unwrap()
+                                .iter_mut()
+                                .find(|i| i.install.branch == branch)
+                                .unwrap()
+                                .has_config = false;
                         }
                     });
                 })

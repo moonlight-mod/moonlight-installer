@@ -1,6 +1,8 @@
 use super::types::{Branch, MoonlightBranch};
 use std::path::PathBuf;
 
+const DOWNLOAD_DIR: &str = "dist";
+
 // Reimplementation of electron's appdata stuff
 // Don't like to unwrap here but also if this is broken the entire app is broken
 pub fn get_moonlight_dir() -> PathBuf {
@@ -25,6 +27,14 @@ pub fn get_moonlight_dir() -> PathBuf {
     }
 
     dir
+}
+
+pub fn get_branch_config(branch: Branch) -> PathBuf {
+    get_moonlight_dir().join(format!("{}.json", branch.to_string().to_lowercase()))
+}
+
+pub fn get_download_dir() -> PathBuf {
+    get_moonlight_dir().join(DOWNLOAD_DIR)
 }
 
 pub fn kill_discord(branch: Branch) {
