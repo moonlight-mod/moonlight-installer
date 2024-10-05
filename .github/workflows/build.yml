@@ -24,6 +24,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-unknown-linux-musl
+      - name: Set musl toolchain as default
+        run: rustup default stable-x86_64-unknown-linux-musl
       - uses: Swatinem/rust-cache@v2
 
       - name: Download appimcagetool
