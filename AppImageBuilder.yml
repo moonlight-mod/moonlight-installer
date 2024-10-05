@@ -1,0 +1,35 @@
+version: 1
+AppDir:
+  path: ./AppDir
+
+  app_info:
+    id: io.github.moonlight-mod.installer
+    name: moonlight installer
+    icon: moonlight-installer
+    version: 0.2.0
+    exec: usr/bin/moonlight-installer
+    exec_args: $@
+
+  files:
+    include:
+      - usr/bin/moonlight-installer
+
+  test:
+    fedora-30:
+      image: appimagecrafters/tests-env:fedora-30
+      command: ./AppRun
+    debian-stable:
+      image: appimagecrafters/tests-env:debian-stable
+      command: ./AppRun
+    archlinux-latest:
+      image: appimagecrafters/tests-env:archlinux-latest
+      command: ./AppRun
+    centos-7:
+      image: appimagecrafters/tests-env:centos-7
+      command: ./AppRun
+    ubuntu-xenial:
+      image: appimagecrafters/tests-env:ubuntu-xenial
+      command: ./AppRun
+
+AppImage:
+  arch: x86_64

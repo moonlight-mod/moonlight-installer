@@ -1,1 +1,6 @@
 /target
+
+# Linux packaging
+/AppDir
+/appimage-build
+*.AppImage
