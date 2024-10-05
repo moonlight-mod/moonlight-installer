@@ -13,7 +13,7 @@ fn main() -> anyhow::Result<()> {
             .with_inner_size([500.0, 250.0])
             .with_min_inner_size([200.0, 250.0])
             .with_icon(
-                eframe::icon_data::from_png_bytes(&include_bytes!("../assets/icon.png")[..])
+                eframe::icon_data::from_png_bytes(&include_bytes!("../icon.png")[..])
                     .expect("Failed to load icon"),
             ),
         ..Default::default()

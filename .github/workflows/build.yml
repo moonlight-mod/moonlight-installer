@@ -16,3 +16,26 @@ jobs:
         with:
           name: moonlight-installer-windows
           path: target/release/moonlight-installer.exe
+
+  build-linux:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Download appimcagetool
+        run: |
+          wget https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-$(uname -m).AppImage -O ./appimagetool
+          chmod +x ./appimagetool
+      - name: Install musl-gcc
+        run: sudo apt-get install -y musl-tools
+
+      - name: Build
+        run: ./build-linux.sh
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonlight-installer-linux
+          path: ./target/appimage/moonlight-installer.AppImage
