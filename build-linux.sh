@@ -26,4 +26,4 @@ echo "Building AppImage..."
 ./appimage-builder-x86_64.AppImage --recipe ./AppImageBuilder.yml
 
 # Move the appimage into a predictable location for CI
-mv "./moonlight installer-*-x86_64.AppImage" ./moonlight-installer-x86_64.AppImage
+mv ./moonlight\ installer-*-x86_64.AppImage ./moonlight-installer-x86_64.AppImage

@@ -26,7 +26,5 @@ fn main() -> anyhow::Result<()> {
     )
     .map_err(|e| anyhow::anyhow!(format!("Error running app: {:?}", e)))?;
 
-    println!("Hello, world!");
-
     Ok(())
 }
