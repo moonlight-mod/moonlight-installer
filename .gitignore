@@ -1,2 +1,4 @@
 /target
 /appimagetool
+/appdir
+*.AppImage
