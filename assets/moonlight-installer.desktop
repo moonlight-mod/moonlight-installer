@@ -1,7 +1,0 @@
-[Desktop Entry]
-Name=moonlight installer
-Exec=moonlight-installer
-Icon=icon
-Type=Application
-Categories=Utility;
-X-AppImage-Version=0.2.0
