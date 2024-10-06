@@ -4,6 +4,11 @@ version = "0.2.0"
 license = "MIT"
 edition = "2021"
 
+[package.metadata.bundle]
+name = "moonlight Installer"
+identifier = "io.github.moonlight-mod.moonlight-installer"
+icon = ["assets/icon.png"]
+
 [dependencies]
 anyhow = "1.0.89"
 eframe = { version = "0.29.1", features = [
