@@ -10,7 +10,13 @@ pub enum Args {
     Install { branch: MoonlightBranch },
 
     /// Patch a Discord install
-    Patch { exe: PathBuf },
+    Patch {
+        exe: PathBuf,
+
+        /// Path to a custom moonlight build
+        #[clap(long, short)]
+        moonlight: Option<PathBuf>,
+    },
 
     /// Unpatch a Discord install
     Unpatch { exe: PathBuf },
@@ -28,19 +34,19 @@ fn main() -> anyhow::Result<()> {
             log::info!("Downloaded version {}", ver);
         }
 
-        Args::Patch { exe: dir } => {
-            log::info!("Patching install at {:?}", dir);
-            let install = detect_install(&dir);
+        Args::Patch { exe, moonlight } => {
+            log::info!("Patching install at {:?}", exe);
+            let install = detect_install(&exe);
             if let Some(install) = install {
                 if install.patched {
                     log::warn!("Install already patched");
                     std::process::exit(0);
                 }
 
-                installer.patch_install(install.install)?;
-                log::info!("Patched install at {:?}", dir);
+                installer.patch_install(install.install, moonlight)?;
+                log::info!("Patched install at {:?}", exe);
             } else {
-                log::error!("Failed to detect install at {:?}", dir);
+                log::error!("Failed to detect install at {:?}", exe);
                 std::process::exit(1);
             }
         }

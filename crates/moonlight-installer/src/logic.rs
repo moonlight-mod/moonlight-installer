@@ -44,7 +44,7 @@ pub fn app_logic_thread(
 
             LogicCommand::PatchInstall(install) => {
                 let resp = installer
-                    .patch_install(install.clone())
+                    .patch_install(install.clone(), None)
                     .map(|_| install.path);
                 tx.send(LogicResponse::PatchComplete(resp))?;
             }

@@ -239,7 +239,11 @@ impl Installer {
         Ok(!get_app_dir(&install.path)?.join("app.asar").exists())
     }
 
-    pub fn patch_install(&self, install: DetectedInstall) -> InstallerResult<()> {
+    pub fn patch_install(
+        &self,
+        install: DetectedInstall,
+        moonlight_dir: Option<PathBuf>,
+    ) -> InstallerResult<()> {
         // TODO: flatpak and stuff
         let app_dir = get_app_dir(&install.path)?;
         let asar = app_dir.join("app.asar");
@@ -253,7 +257,8 @@ impl Installer {
         });
         std::fs::write(app_dir.join("app/package.json"), json.to_string())?;
 
-        let moonlight_injector = get_download_dir().join("injector.js");
+        let moonlight_dir = moonlight_dir.unwrap_or_else(|| get_download_dir());
+        let moonlight_injector = moonlight_dir.join("injector.js");
         let moonlight_injector_str = serde_json::to_string(&moonlight_injector).unwrap();
         let injector = format!(
             r#"require({}).inject(
