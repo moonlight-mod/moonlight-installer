@@ -30,8 +30,12 @@ jobs:
         run: cargo build --release
       - name: Bundle
         run: cargo bundle --release
+      - name: Apply ad-hoc signature
+        run: codesign --force --deep -s - "target/release/bundle/osx/moonlight installer.app"
+      - name: Create DMG
+        run: hdiutil create -volname "Moonlight Installer" -srcfolder target/release/bundle/osx -ov -format UDZO moonlight-installer-macos.dmg
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: moonlight-installer-macos
-          path: target/release/bundle
+          path: moonlight-installer-macos.dmg
