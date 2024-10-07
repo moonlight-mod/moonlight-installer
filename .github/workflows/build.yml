@@ -22,18 +22,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
       - name: Install cargo-bundle
         run: cargo install cargo-bundle
 
-      - name: Build
-        run: cargo build --bin moonlight-installer --release
+      # cargo-bundle doesn't understand what to do about workspaces
       - name: Bundle
         run: |
+          cargo build --release
+          mv ./target ./crates/moonlight-installer
           cd ./crates/moonlight-installer
-          cargo bundle --bin moonlight-installer --release
+          cargo bundle --release
           cd ../..
-          cp -r ./crates/moonlight-installer/target/bundle/osx ./target/release/bundle
+          mv ./crates/moonlight-installer/target ./target
       - name: Apply ad-hoc signature
         run: codesign --force --deep -s - "target/release/bundle/osx/moonlight installer.app"
       - name: Create DMG

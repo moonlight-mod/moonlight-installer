@@ -20,7 +20,7 @@ libmoonlight = { path = "../libmoonlight" }
 [package.metadata.bundle]
 name = "moonlight installer"
 identifier = "io.github.moonlight-mod.moonlight-installer"
-icon = ["../assets/icon.png"]
+icon = ["../../assets/icon.png"]
 
 [target.'cfg(windows)'.build-dependencies]
 winresource = "0.1.17"
