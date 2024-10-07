@@ -2,10 +2,9 @@
 
 mod app;
 pub mod config;
-pub mod installer;
 pub mod logic;
 
-fn main() -> anyhow::Result<()> {
+fn main() -> eframe::Result {
     env_logger::init();
 
     let native_options = eframe::NativeOptions {
@@ -13,7 +12,7 @@ fn main() -> anyhow::Result<()> {
             .with_inner_size([500.0, 250.0])
             .with_min_inner_size([150.0, 150.0])
             .with_icon(
-                eframe::icon_data::from_png_bytes(&include_bytes!("../assets/icon.png")[..])
+                eframe::icon_data::from_png_bytes(&include_bytes!("../../../assets/icon.png")[..])
                     .expect("Failed to load icon"),
             ),
         ..Default::default()
@@ -23,8 +22,7 @@ fn main() -> anyhow::Result<()> {
         "moonlight installer",
         native_options,
         Box::new(|cc| Ok(Box::new(app::App::new(cc)))),
-    )
-    .map_err(|e| anyhow::anyhow!(format!("Error running app: {:?}", e)))?;
+    )?;
 
     Ok(())
 }

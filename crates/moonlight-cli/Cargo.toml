@@ -1,0 +1,12 @@
+[package]
+name = "moonlight-cli"
+license = "MIT"
+version = "0.2.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.89"
+clap = { workspace = true }
+log = { workspace = true }
+env_logger = { workspace = true }
+libmoonlight = { path = "../libmoonlight" }

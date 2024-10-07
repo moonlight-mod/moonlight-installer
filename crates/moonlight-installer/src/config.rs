@@ -1,4 +1,4 @@
-use crate::installer::types::MoonlightBranch;
+use libmoonlight::types::MoonlightBranch;
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct Config {

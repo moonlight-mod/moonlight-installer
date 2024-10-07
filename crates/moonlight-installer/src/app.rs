@@ -1,13 +1,9 @@
-use std::time::Duration;
-
 use crate::{
     config::Config,
-    installer::{
-        types::*,
-        util::{branch_desc, branch_name, get_download_dir},
-    },
     logic::{app_logic_thread, LogicCommand, LogicResponse},
 };
+use libmoonlight::{branch_desc, branch_name, get_download_dir, types::*};
+use std::time::Duration;
 
 #[derive(Debug, Default)]
 pub struct AppState {

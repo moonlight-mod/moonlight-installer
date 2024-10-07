@@ -1,0 +1,18 @@
+[package]
+name = "libmoonlight"
+license = "MIT"
+version = "0.2.0"
+edition = "2021"
+
+[dependencies]
+flate2 = "1.0.34"
+reqwest = { version = "0.12.8", features = [
+  "blocking",
+  "json",
+  "rustls-tls",
+], default-features = false }
+tar = "0.4.42"
+serde_json = "1.0.128"
+serde = { workspace = true }
+clap = { workspace = true }
+thiserror = "1.0.64"

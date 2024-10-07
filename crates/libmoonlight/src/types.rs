@@ -1,16 +1,21 @@
 use std::{fmt::Display, path::PathBuf};
+use thiserror::Error;
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(
+    serde::Serialize, serde::Deserialize, clap::ValueEnum, Debug, Clone, Copy, PartialEq, Eq,
+)]
 pub enum MoonlightBranch {
     Stable,
     Nightly,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy)]
-pub enum InstallType {
-    Windows,
-    MacOS,
-    Linux,
+impl Display for MoonlightBranch {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MoonlightBranch::Stable => write!(f, "stable"),
+            MoonlightBranch::Nightly => write!(f, "nightly"),
+        }
+    }
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
@@ -35,7 +40,6 @@ impl Display for Branch {
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct DetectedInstall {
-    pub install_type: InstallType,
     pub branch: Branch,
     pub path: PathBuf,
 }
@@ -71,10 +75,16 @@ pub enum ErrorCode {
 
 pub type InstallerResult<T> = std::result::Result<T, InstallerError>;
 
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Error)]
 pub struct InstallerError {
     pub message: String,
     pub code: ErrorCode,
+}
+
+impl Display for InstallerError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} ({:?})", self.message, self.code)
+    }
 }
 
 impl From<std::io::Error> for InstallerError {

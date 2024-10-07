@@ -10,7 +10,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Build
-        run: cargo build --release
+        run: cargo build --bin moonlight-installer --release
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -27,9 +27,9 @@ jobs:
         run: cargo install cargo-bundle
 
       - name: Build
-        run: cargo build --release
+        run: cargo build --bin moonlight-installer --release
       - name: Bundle
-        run: cargo bundle --release
+        run: cargo bundle --bin moonlight-installer --release
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:

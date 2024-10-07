@@ -1,3 +1,5 @@
+use crate::{get_app_dir, PATCHED_ASAR};
+
 use super::{
     types::*,
     util::{get_branch_config, get_download_dir},
@@ -11,8 +13,6 @@ const GITHUB_REPO: &str = "moonlight-mod/moonlight";
 const ARTIFACT_NAME: &str = "dist.tar.gz";
 const NIGHTLY_REF_URL: &str = "https://moonlight-mod.github.io/moonlight/ref";
 const NIGHTLY_DIST_URL: &str = "https://moonlight-mod.github.io/moonlight/dist.tar.gz";
-
-const PATCHED_ASAR: &str = "_app.asar";
 
 pub struct Installer;
 
@@ -146,7 +146,6 @@ impl Installer {
 
                         if let Some(most_recent_install) = app_dirs.last() {
                             installs.push(DetectedInstall {
-                                install_type: InstallType::Windows,
                                 branch,
                                 path: most_recent_install.path(),
                             });
@@ -191,7 +190,6 @@ impl Installer {
                         let app_dir = macos_app_dir.join("Contents/Resources");
 
                         installs.push(DetectedInstall {
-                            install_type: InstallType::MacOS,
                             branch,
                             path: app_dir,
                         })
@@ -224,11 +222,7 @@ impl Installer {
 
                     let path = local_share.join(dir);
                     if path.exists() {
-                        installs.push(DetectedInstall {
-                            install_type: InstallType::Linux,
-                            branch,
-                            path,
-                        });
+                        installs.push(DetectedInstall { branch, path });
                     }
                 }
 
@@ -239,23 +233,15 @@ impl Installer {
         }
     }
 
-    fn get_app_dir(&self, install: DetectedInstall) -> InstallerResult<PathBuf> {
-        match std::env::consts::OS {
-            "windows" | "linux" => Ok(install.path.join("resources")),
-            "macos" => Ok(install.path),
-            _ => unimplemented!("Unsupported OS"),
-        }
-    }
-
     // This will probably match other client mods that replace app.asar, but it
     // will just prompt them to unpatch, so I think it's fine
     fn is_install_patched(&self, install: DetectedInstall) -> InstallerResult<bool> {
-        Ok(!self.get_app_dir(install)?.join("app.asar").exists())
+        Ok(!get_app_dir(&install.path)?.join("app.asar").exists())
     }
 
     pub fn patch_install(&self, install: DetectedInstall) -> InstallerResult<()> {
         // TODO: flatpak and stuff
-        let app_dir = self.get_app_dir(install)?;
+        let app_dir = get_app_dir(&install.path)?;
         let asar = app_dir.join("app.asar");
         std::fs::rename(&asar, asar.with_file_name(PATCHED_ASAR))?;
         std::fs::create_dir(app_dir.join("app"))?;
@@ -281,7 +267,7 @@ impl Installer {
     }
 
     pub fn unpatch_install(&self, install: DetectedInstall) -> InstallerResult<()> {
-        let app_dir = self.get_app_dir(install)?;
+        let app_dir = get_app_dir(&install.path)?;
         let asar = app_dir.join(PATCHED_ASAR);
         std::fs::rename(&asar, asar.with_file_name("app.asar"))?;
         std::fs::remove_dir_all(app_dir.join("app"))?;

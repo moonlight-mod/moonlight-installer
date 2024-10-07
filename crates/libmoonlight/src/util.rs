@@ -1,7 +1,10 @@
+use crate::types::{DetectedInstall, InstallInfo, InstallerResult};
+
 use super::types::{Branch, MoonlightBranch};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 const DOWNLOAD_DIR: &str = "dist";
+pub const PATCHED_ASAR: &str = "_app.asar";
 
 // Reimplementation of electron's appdata stuff
 // Don't like to unwrap here but also if this is broken the entire app is broken
@@ -27,6 +30,44 @@ pub fn get_moonlight_dir() -> PathBuf {
     }
 
     dir
+}
+
+pub fn detect_install_type(exe: &Path) -> Option<Branch> {
+    let name = exe.file_name()?.to_string_lossy();
+
+    // lmfao
+    if name.contains("PTB") {
+        Some(Branch::PTB)
+    } else if name.contains("Canary") {
+        Some(Branch::Canary)
+    } else if name.contains("Development") {
+        Some(Branch::Development)
+    } else {
+        Some(Branch::Stable)
+    }
+}
+
+pub fn detect_install(exe: &Path) -> Option<InstallInfo> {
+    let folder = exe.parent()?;
+    let install_type = detect_install_type(exe)?;
+    let app_dir = get_app_dir(folder).ok()?;
+
+    Some(InstallInfo {
+        install: DetectedInstall {
+            branch: install_type,
+            path: folder.to_path_buf(),
+        },
+        patched: app_dir.join(PATCHED_ASAR).exists(),
+        has_config: false,
+    })
+}
+
+pub fn get_app_dir(path: &Path) -> InstallerResult<PathBuf> {
+    match std::env::consts::OS {
+        "windows" | "linux" => Ok(path.join("resources")),
+        "macos" => Ok(path.to_path_buf()),
+        _ => unimplemented!("Unsupported OS"),
+    }
 }
 
 pub fn get_branch_config(branch: Branch) -> PathBuf {

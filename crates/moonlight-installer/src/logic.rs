@@ -1,4 +1,4 @@
-use crate::installer::{installer::Installer, types::*, util::kill_discord};
+use libmoonlight::{kill_discord, types::*, Installer};
 use std::path::PathBuf;
 
 pub enum LogicCommand {
@@ -22,7 +22,7 @@ pub enum LogicResponse {
 pub fn app_logic_thread(
     rx: flume::Receiver<LogicCommand>,
     tx: flume::Sender<LogicResponse>,
-) -> anyhow::Result<()> {
+) -> Result<(), Box<dyn std::error::Error>> {
     let installer = Installer::new();
 
     loop {
