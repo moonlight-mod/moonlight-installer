@@ -21,24 +21,22 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+      # macos-latest is aarch64, install x86_64 target
       - uses: dtolnay/rust-toolchain@stable
-      - name: Install cargo-bundle
-        run: cargo install cargo-bundle
+        with:
+          targets: x86_64-apple-darwin
 
-      # cargo-bundle doesn't understand what to do about workspaces
-      - name: Bundle
-        run: |
-          cargo build --release
-          cp -r ./target ./crates/moonlight-installer/target
-          cd ./crates/moonlight-installer
-          cargo bundle --release
-          cd ../..
-          rm -rf ./target
-          mv ./crates/moonlight-installer/target .
-      - name: Apply ad-hoc signature
-        run: codesign --force --deep -s - "target/release/bundle/osx/moonlight installer.app"
+      # build our two architectures
+      - name: Build (AArch64)
+        run: cargo build --target=aarch64-apple-darwin --release
+      - name: Build (x86_64)
+        run: cargo build --target=x86_64-apple-darwin --release
+
+      # packaging
+      - name: Create .app bundle
+        run: ./package-macos-app.sh bundle
       - name: Create DMG
-        run: hdiutil create -volname "Moonlight Installer" -srcfolder target/release/bundle/osx -ov -format UDZO moonlight-installer-macos.dmg
+        run: hdiutil create -volname "moonlight installer" -srcfolder temp/app -ov -format UDZO moonlight-installer-macos.dmg
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
