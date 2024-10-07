@@ -29,11 +29,11 @@ jobs:
       - name: Bundle
         run: |
           cargo build --release
-          mv ./target ./crates/moonlight-installer
+          cp -r ./target ./crates/moonlight-installer/target
           cd ./crates/moonlight-installer
           cargo bundle --release
           cd ../..
-          mv ./crates/moonlight-installer/target ./target
+          mv ./crates/moonlight-installer/target .
       - name: Apply ad-hoc signature
         run: codesign --force --deep -s - "target/release/bundle/osx/moonlight installer.app"
       - name: Create DMG
