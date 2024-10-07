@@ -5,7 +5,7 @@ license = "MIT"
 edition = "2021"
 
 [package.metadata.bundle]
-name = "moonlight Installer"
+name = "moonlight installer"
 identifier = "io.github.moonlight-mod.moonlight-installer"
 icon = ["assets/icon.png"]
 

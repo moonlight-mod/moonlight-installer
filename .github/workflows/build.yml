@@ -16,3 +16,22 @@ jobs:
         with:
           name: moonlight-installer-windows
           path: target/release/moonlight-installer.exe
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-bundle
+        run: cargo install cargo-bundle
+
+      - name: Build
+        run: cargo build --release
+      - name: Bundle
+        run: cargo bundle --release
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonlight-installer-macos
+          path: target/release/bundle
