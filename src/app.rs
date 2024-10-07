@@ -194,161 +194,173 @@ impl eframe::App for App {
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("moonlight installer");
-
-            egui::CollapsingHeader::new("Download moonlight")
-                .default_open(true)
+            egui::ScrollArea::vertical()
+                .auto_shrink(false)
                 .show(ui, |ui| {
-                    if let Some(err) = &self.state.downloading_error {
-                        self.draw_error(ui, err);
-                    }
+                    ui.heading("moonlight installer");
 
-                    ui.vertical(|ui| {
-                        egui::ComboBox::from_label("Selected branch")
-                            .selected_text(branch_name(self.config.branch))
-                            .show_ui(ui, |ui| {
-                                for &branch in &[MoonlightBranch::Stable, MoonlightBranch::Nightly]
-                                {
-                                    let str = format!(
-                                        "{}\n  {}",
-                                        branch_name(branch),
-                                        branch_desc(branch)
-                                    );
+                    egui::CollapsingHeader::new("Download moonlight")
+                        .default_open(true)
+                        .show(ui, |ui| {
+                            if let Some(err) = &self.state.downloading_error {
+                                self.draw_error(ui, err);
+                            }
+
+                            ui.vertical(|ui| {
+                                egui::ComboBox::from_label("Selected branch")
+                                    .selected_text(branch_name(self.config.branch))
+                                    .show_ui(ui, |ui| {
+                                        for &branch in
+                                            &[MoonlightBranch::Stable, MoonlightBranch::Nightly]
+                                        {
+                                            let str = format!(
+                                                "{}\n  {}",
+                                                branch_name(branch),
+                                                branch_desc(branch)
+                                            );
+                                            if ui
+                                                .selectable_value(
+                                                    &mut self.config.branch,
+                                                    branch,
+                                                    str,
+                                                )
+                                                .changed()
+                                            {
+                                                self.state.latest_version = None;
+                                                self.send(LogicCommand::GetLatestVersion(
+                                                    self.config.branch,
+                                                ));
+                                            }
+                                        }
+                                    });
+
+                                ui.horizontal(|ui| {
+                                    ui.label("Latest version:");
+                                    if let Some(version) = &self.state.latest_version {
+                                        ui.label(version);
+                                    } else {
+                                        ui.spinner();
+                                    }
+                                });
+                                ui.horizontal(|ui| {
+                                    ui.label("Downloaded version:");
+                                    if let Some(version) = &self.downloaded_version {
+                                        ui.label(version);
+                                    } else {
+                                        ui.label("None");
+                                    }
+                                });
+
+                                ui.horizontal(|ui| {
+                                    let can_download = !self.state.downloading
+                                        && self.state.latest_version.is_some()
+                                        && (self.downloaded_version.is_none()
+                                            || self.downloaded_version
+                                                != self.state.latest_version);
+
                                     if ui
-                                        .selectable_value(&mut self.config.branch, branch, str)
-                                        .changed()
+                                        .add_enabled(can_download, egui::Button::new("Download"))
+                                        .clicked()
                                     {
-                                        self.state.latest_version = None;
-                                        self.send(LogicCommand::GetLatestVersion(
+                                        self.state.downloading = true;
+                                        self.state.downloading_error = None;
+                                        self.send(LogicCommand::UpdateMoonlight(
                                             self.config.branch,
                                         ));
                                     }
+
+                                    if self.state.downloading {
+                                        ui.spinner();
+                                    }
+                                });
+                            });
+                        });
+
+                    egui::CollapsingHeader::new("Discord installations")
+                        .default_open(true)
+                        .show(ui, |ui| {
+                            ui.vertical(|ui| {
+                                if let Some(err) = &self.state.patching_error {
+                                    self.draw_error(ui, err);
+                                }
+
+                                if self.state.installs.is_none() {
+                                    ui.spinner();
+                                    return;
+                                }
+
+                                // lmao this is so jank I hate the borrow checker
+                                let mut should_patch = Vec::new();
+                                let mut should_unpatch = Vec::new();
+                                let mut should_reset_config = Vec::new();
+
+                                egui::Grid::new("install_grid").show(ui, |ui| {
+                                    for install in self.state.installs.as_ref().unwrap() {
+                                        let patch_button = egui::Button::new(if install.patched {
+                                            "Unpatch"
+                                        } else {
+                                            "Patch"
+                                        });
+                                        let can_patch = !self.state.patching
+                                            && self.downloaded_version.is_some();
+
+                                        let reset_config_button = egui::Button::new("Reset config");
+                                        let can_reset_config = install.has_config;
+
+                                        ui.label(format!("{:?}", install.install.branch))
+                                            .on_hover_text(install.install.path.to_string_lossy());
+
+                                        let patch_clicked = ui
+                                            .add_enabled(can_patch, patch_button)
+                                            .on_disabled_hover_text(PATCH_TOOLIP)
+                                            .clicked();
+
+                                        if patch_clicked {
+                                            if install.patched {
+                                                should_unpatch.push(install.install.clone());
+                                            } else {
+                                                should_patch.push(install.install.clone());
+                                            }
+                                        }
+
+                                        let reset_config_clicked = ui
+                                            .add_enabled(can_reset_config, reset_config_button)
+                                            .on_hover_text(RESET_CONFIG_TOOLTIP)
+                                            .clicked();
+                                        if reset_config_clicked {
+                                            should_reset_config.push(install.install.branch);
+                                        }
+
+                                        ui.end_row();
+                                    }
+                                });
+
+                                for install in should_patch {
+                                    self.state.patching = true;
+                                    self.state.patching_branch = Some(install.branch);
+                                    self.state.patching_error = None;
+                                    self.send(LogicCommand::PatchInstall(install));
+                                }
+                                for install in should_unpatch {
+                                    self.state.patching = true;
+                                    self.state.patching_branch = Some(install.branch);
+                                    self.state.patching_error = None;
+                                    self.send(LogicCommand::UnpatchInstall(install));
+                                }
+                                for branch in should_reset_config {
+                                    self.send(LogicCommand::ResetConfig(branch));
+                                    self.state
+                                        .installs
+                                        .as_mut()
+                                        .unwrap()
+                                        .iter_mut()
+                                        .find(|i| i.install.branch == branch)
+                                        .unwrap()
+                                        .has_config = false;
                                 }
                             });
-
-                        ui.horizontal(|ui| {
-                            ui.label("Latest version:");
-                            if let Some(version) = &self.state.latest_version {
-                                ui.label(version);
-                            } else {
-                                ui.spinner();
-                            }
                         });
-                        ui.horizontal(|ui| {
-                            ui.label("Downloaded version:");
-                            if let Some(version) = &self.downloaded_version {
-                                ui.label(version);
-                            } else {
-                                ui.label("None");
-                            }
-                        });
-
-                        ui.horizontal(|ui| {
-                            let can_download = !self.state.downloading
-                                && self.state.latest_version.is_some()
-                                && (self.downloaded_version.is_none()
-                                    || self.downloaded_version != self.state.latest_version);
-
-                            if ui
-                                .add_enabled(can_download, egui::Button::new("Download"))
-                                .clicked()
-                            {
-                                self.state.downloading = true;
-                                self.state.downloading_error = None;
-                                self.send(LogicCommand::UpdateMoonlight(self.config.branch));
-                            }
-
-                            if self.state.downloading {
-                                ui.spinner();
-                            }
-                        });
-                    });
                 });
-
-            egui::CollapsingHeader::new("Discord installations")
-                .default_open(true)
-                .show(ui, |ui| {
-                    ui.vertical(|ui| {
-                        if let Some(err) = &self.state.patching_error {
-                            self.draw_error(ui, err);
-                        }
-
-                        if self.state.installs.is_none() {
-                            ui.spinner();
-                            return;
-                        }
-
-                        // lmao this is so jank I hate the borrow checker
-                        let mut should_patch = Vec::new();
-                        let mut should_unpatch = Vec::new();
-                        let mut should_reset_config = Vec::new();
-
-                        egui::Grid::new("install_grid").show(ui, |ui| {
-                            for install in self.state.installs.as_ref().unwrap() {
-                                let patch_button = egui::Button::new(if install.patched {
-                                    "Unpatch"
-                                } else {
-                                    "Patch"
-                                });
-                                let can_patch =
-                                    !self.state.patching && self.downloaded_version.is_some();
-
-                                let reset_config_button = egui::Button::new("Reset config");
-                                let can_reset_config = install.has_config;
-
-                                ui.label(format!("{:?}", install.install.branch))
-                                    .on_hover_text(install.install.path.to_string_lossy());
-
-                                let patch_clicked = ui
-                                    .add_enabled(can_patch, patch_button)
-                                    .on_disabled_hover_text(PATCH_TOOLIP)
-                                    .clicked();
-
-                                if patch_clicked {
-                                    if install.patched {
-                                        should_unpatch.push(install.install.clone());
-                                    } else {
-                                        should_patch.push(install.install.clone());
-                                    }
-                                }
-
-                                let reset_config_clicked = ui
-                                    .add_enabled(can_reset_config, reset_config_button)
-                                    .on_hover_text(RESET_CONFIG_TOOLTIP)
-                                    .clicked();
-                                if reset_config_clicked {
-                                    should_reset_config.push(install.install.branch);
-                                }
-
-                                ui.end_row();
-                            }
-                        });
-
-                        for install in should_patch {
-                            self.state.patching = true;
-                            self.state.patching_branch = Some(install.branch);
-                            self.state.patching_error = None;
-                            self.send(LogicCommand::PatchInstall(install));
-                        }
-                        for install in should_unpatch {
-                            self.state.patching = true;
-                            self.state.patching_branch = Some(install.branch);
-                            self.state.patching_error = None;
-                            self.send(LogicCommand::UnpatchInstall(install));
-                        }
-                        for branch in should_reset_config {
-                            self.send(LogicCommand::ResetConfig(branch));
-                            self.state
-                                .installs
-                                .as_mut()
-                                .unwrap()
-                                .iter_mut()
-                                .find(|i| i.install.branch == branch)
-                                .unwrap()
-                                .has_config = false;
-                        }
-                    });
-                })
         });
 
         // Since we're receiving messages on the UI thread, we need to be
