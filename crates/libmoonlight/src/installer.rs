@@ -1,4 +1,4 @@
-use crate::{get_app_dir, PATCHED_ASAR};
+use crate::{get_app_dir, get_moonlight_dir, PATCHED_ASAR};
 
 use super::{
     types::*,
@@ -8,6 +8,7 @@ use std::path::PathBuf;
 
 const USER_AGENT: &str =
     "moonlight-installer (https://github.com/moonlight-mod/moonlight-installer)";
+const INSTALLED_VERSION_FILE: &str = ".moonlight-installed-version";
 
 const GITHUB_REPO: &str = "moonlight-mod/moonlight";
 const ARTIFACT_NAME: &str = "dist.tar.gz";
@@ -67,6 +68,18 @@ impl Installer {
             MoonlightBranch::Stable => self.get_stable_release().map(|x| x.name),
             MoonlightBranch::Nightly => self.get_nightly_version(),
         }
+    }
+
+    pub fn get_downloaded_version(&self) -> InstallerResult<Option<String>> {
+        let dir = get_moonlight_dir();
+        let version = std::fs::read_to_string(dir.join(INSTALLED_VERSION_FILE)).ok();
+        Ok(version)
+    }
+
+    pub fn set_downloaded_version(&self, version: &str) -> InstallerResult<()> {
+        let dir = get_moonlight_dir();
+        std::fs::write(dir.join(INSTALLED_VERSION_FILE), version)?;
+        Ok(())
     }
 
     fn get_stable_release(&self) -> InstallerResult<GitHubRelease> {

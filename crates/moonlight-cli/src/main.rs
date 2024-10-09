@@ -31,6 +31,7 @@ fn main() -> anyhow::Result<()> {
         Args::Install { branch } => {
             log::info!("Downloading moonlight branch {}", branch);
             let ver = installer.download_moonlight(branch)?;
+            installer.set_downloaded_version(&ver)?;
             log::info!("Downloaded version {}", ver);
         }
 

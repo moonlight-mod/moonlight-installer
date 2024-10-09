@@ -2,11 +2,12 @@ use crate::{
     config::Config,
     logic::{app_logic_thread, LogicCommand, LogicResponse},
 };
-use libmoonlight::{branch_desc, branch_name, get_download_dir, types::*};
+use libmoonlight::{branch_desc, branch_name, types::*};
 use std::time::Duration;
 
 #[derive(Debug, Default)]
 pub struct AppState {
+    downloaded_version: Option<Option<String>>,
     latest_version: Option<String>,
     installs: Option<Vec<InstallInfo>>,
 
@@ -21,7 +22,6 @@ pub struct AppState {
 #[derive(serde::Deserialize, serde::Serialize, Default, Debug)]
 pub struct App {
     config: Config,
-    downloaded_version: Option<String>,
 
     // Don't know how to clean up these skips lol
     #[serde(skip)]
@@ -49,11 +49,6 @@ impl App {
             Default::default()
         };
 
-        // Jank place to have this
-        if !get_download_dir().exists() {
-            app.downloaded_version = None;
-        }
-
         let (main_tx, logic_rx) = flume::unbounded::<LogicCommand>();
         let (logic_tx, main_rx) = flume::unbounded::<LogicResponse>();
         std::thread::spawn(move || {
@@ -65,6 +60,7 @@ impl App {
         app.tx = Some(main_tx);
         app.rx = Some(main_rx);
 
+        app.send(LogicCommand::GetDownloadedVersion);
         app.send(LogicCommand::GetLatestVersion(app.config.branch));
         app.send(LogicCommand::GetInstalls);
 
@@ -81,6 +77,11 @@ impl App {
                     self.state.installs = Some(installs);
                 }
 
+                LogicResponse::DownloadedVersion(version) => {
+                    log::info!("Downloaded version: {:?}", version);
+                    self.state.downloaded_version = Some(version);
+                }
+
                 LogicResponse::LatestVersion(version) => {
                     log::info!("Latest version: {:?}", version);
                     if let Ok(version) = version {
@@ -95,10 +96,10 @@ impl App {
                 LogicResponse::UpdateComplete(version) => {
                     log::info!("Update complete: {:?}", version);
                     if let Ok(version) = version {
-                        self.downloaded_version = Some(version);
+                        self.state.downloaded_version = Some(Some(version));
                         self.state.downloading_error = None;
                     } else {
-                        self.downloaded_version = None;
+                        self.state.downloaded_version = Some(None);
                         self.state.downloading_error = version.err();
                     }
                     self.state.downloading = false;
@@ -240,19 +241,26 @@ impl eframe::App for App {
                                 });
                                 ui.horizontal(|ui| {
                                     ui.label("Downloaded version:");
-                                    if let Some(version) = &self.downloaded_version {
-                                        ui.label(version);
+                                    if let Some(version) = &self.state.downloaded_version {
+                                        ui.label(version.as_deref().unwrap_or("None"));
                                     } else {
-                                        ui.label("None");
+                                        ui.spinner();
                                     }
                                 });
 
                                 ui.horizontal(|ui| {
                                     let can_download = !self.state.downloading
                                         && self.state.latest_version.is_some()
-                                        && (self.downloaded_version.is_none()
-                                            || self.downloaded_version
-                                                != self.state.latest_version);
+                                        && (self.state.downloaded_version.is_none()
+                                            || self.state.downloaded_version == Some(None)
+                                            || self.state.downloaded_version
+                                                != Some(Some(
+                                                    self.state
+                                                        .latest_version
+                                                        .as_ref()
+                                                        .unwrap()
+                                                        .clone(),
+                                                )));
 
                                     if ui
                                         .add_enabled(can_download, egui::Button::new("Download"))
@@ -298,7 +306,8 @@ impl eframe::App for App {
                                             "Patch"
                                         });
                                         let can_patch = !self.state.patching
-                                            && self.downloaded_version.is_some();
+                                            && (self.state.downloaded_version.is_some()
+                                                && self.state.downloaded_version != Some(None));
 
                                         let reset_config_button = egui::Button::new("Reset config");
                                         let can_reset_config = install.has_config;

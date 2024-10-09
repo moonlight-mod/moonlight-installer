@@ -37,7 +37,7 @@ mkdir -p "$APPDIR/Contents/Resources"
 # Copy our assets to it
 cp $PLIST "$APPDIR/Contents/Info.plist"
 cp $ICON "$APPDIR/Contents/Resources/Icon.icns"
-# Copy the merged binary 
+# Copy the merged binary
 cp $EXECUTABLE "$APPDIR/Contents/MacOS/$EXENAME"
 
 # Apply an ad-hoc signature

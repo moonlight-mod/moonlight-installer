@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 pub enum LogicCommand {
     GetInstalls,
+    GetDownloadedVersion,
     GetLatestVersion(MoonlightBranch),
     UpdateMoonlight(MoonlightBranch),
     PatchInstall(DetectedInstall),
@@ -13,6 +14,7 @@ pub enum LogicCommand {
 
 pub enum LogicResponse {
     Installs(Vec<InstallInfo>),
+    DownloadedVersion(Option<String>),
     LatestVersion(InstallerResult<String>),
     UpdateComplete(InstallerResult<String>),
     PatchComplete(InstallerResult<PathBuf>),
@@ -32,6 +34,11 @@ pub fn app_logic_thread(
                 tx.send(LogicResponse::LatestVersion(latest_version))?;
             }
 
+            LogicCommand::GetDownloadedVersion => {
+                let downloaded_version = installer.get_downloaded_version().unwrap_or(None);
+                tx.send(LogicResponse::DownloadedVersion(downloaded_version))?;
+            }
+
             LogicCommand::GetInstalls => {
                 let installs = installer.get_installs().unwrap_or_default();
                 tx.send(LogicResponse::Installs(installs))?;
@@ -39,6 +46,9 @@ pub fn app_logic_thread(
 
             LogicCommand::UpdateMoonlight(branch) => {
                 let err = installer.download_moonlight(branch);
+                if let Ok(ref version) = err {
+                    installer.set_downloaded_version(&version).ok();
+                }
                 tx.send(LogicResponse::UpdateComplete(err))?;
             }
 
