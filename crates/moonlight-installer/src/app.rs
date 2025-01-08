@@ -1,6 +1,7 @@
 use crate::config::Config;
 use crate::logic::{app_logic_thread, LogicCommand, LogicResponse};
-use libmoonlight::types::{Branch, ErrorCode, InstallInfo, InstallerError, MoonlightBranch};
+use libmoonlight::types::{Branch, InstallInfo, MoonlightBranch};
+use libmoonlight::MoonlightError;
 use std::time::Duration;
 
 #[derive(Debug, Default)]
@@ -10,10 +11,10 @@ pub struct AppState {
     installs: Option<Vec<InstallInfo>>,
 
     downloading: bool,
-    downloading_error: Option<InstallerError>,
+    downloading_error: Option<MoonlightError>,
 
     patching: bool,
-    patching_error: Option<InstallerError>,
+    patching_error: Option<MoonlightError>,
     patching_branch: Option<Branch>,
 }
 
@@ -149,11 +150,11 @@ impl App {
         tx.send(cmd).unwrap();
     }
 
-    fn draw_error(&self, ui: &mut egui::Ui, err: &InstallerError) {
+    fn draw_error(&self, ui: &mut egui::Ui, err: &MoonlightError) {
         ui.heading(egui::RichText::new("Error").color(egui::Color32::RED));
 
-        match err.code {
-            ErrorCode::WindowsFileLock => {
+        match err {
+            MoonlightError::WindowsFileLock(_) => {
                 ui.label(WINDOWS_FILE_LOCK);
 
                 if ui.button("Force close Discord").clicked() {
@@ -163,17 +164,17 @@ impl App {
                 }
             }
 
-            ErrorCode::MacOSNoPermission => {
+            MoonlightError::MacOSNoPermission(_) => {
                 ui.label(MACOS_NO_PERMISSION);
             }
 
-            ErrorCode::NetworkFailed => {
+            MoonlightError::NetworkFailed(_) => {
                 ui.label(NETWORK_FAILED);
             }
 
-            ErrorCode::Unknown => {
+            MoonlightError::Unknown(msg) => {
                 ui.label("An unknown error occurred. Please report this.");
-                ui.label(err.message.clone());
+                ui.label(msg);
             }
         }
 
