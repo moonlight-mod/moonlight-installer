@@ -10,6 +10,42 @@ repository = "https://github.com/moonlight-mod/moonlight-installer"
 license = "MIT"
 version = "0.2.0"
 
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+correctness = { level = "warn", priority = -1 }
+perf = { level = "warn", priority = -1 }
+style = { level = "warn", priority = -1 }
+suspicious = { level = "warn", priority = -1 }
+complexity = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+unnecessary_cast = "warn"
+cast_lossless = "warn"
+cast_possible_truncation = "warn"
+cast_possible_wrap = "warn"
+cast_sign_loss = "warn"
+dbg_macro = "warn"
+deprecated_cfg_attr = "warn"
+separated_literal_suffix = "warn"
+missing_errors_doc = "allow"
+future_not_send = "allow"
+module_name_repetitions = "allow"
+struct_field_names = "allow"
+cast_precision_loss = "allow"
+missing_panics_doc = "allow"
+unused_self = "allow"
+
+[workspace.lints.rust]
+unused_qualifications = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
+trivial_casts = "warn"
+trivial_numeric_casts = "warn"
+unused_allocation = "warn"
+unused_import_braces = "warn"
+deprecated = "warn"
+deprecated_in_future = "forbid"
+unused_must_use = "deny"
+
 [workspace.dependencies]
 libmoonlight = { path = "./crates/libmoonlight" }
 reqwest = { version = "0.12.12", features = ["blocking", "json", "rustls-tls"], default-features = false }
@@ -22,7 +58,7 @@ tar = "0.4.43"
 serde_json = "1.0.135"
 thiserror = "2.0.9"
 color-eyre = { version = "0.6.3", default-features = false }
-clap = { version = "4.5.24", features = ["derive"] }
+clap = { version = "4.5.24", features = ["derive", "cargo", "unicode"] }
 clap_complete = "4.5.41"
 serde = { version = "1.0.217", features = ["derive"] }
 log = "0.4.22"
