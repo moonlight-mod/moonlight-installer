@@ -22,7 +22,8 @@ pub enum Args {
     Unpatch { exe: PathBuf },
 }
 
-fn main() -> anyhow::Result<()> {
+fn main() -> color_eyre::eyre::Result<()> {
+    color_eyre::install()?;
     env_logger::init_from_env(env_logger::Env::new().filter_or("MOONLIGHT_LOG", "info"));
     let args = Args::parse();
     let installer = libmoonlight::Installer::new();

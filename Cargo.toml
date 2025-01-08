@@ -2,8 +2,27 @@
 resolver = "2"
 members = ["crates/*"]
 
+[workspace.package]
+authors = ["moonlight contributors"]
+edition = "2024"
+homepage = "https://moonlight-mod.github.io/"
+repository = "https://github.com/moonlight-mod/moonlight-installer"
+license = "MIT"
+version = "0.2.0"
+
 [workspace.dependencies]
-clap = { version = "4.5.19", features = ["derive"] }
-serde = { version = "1.0.210", features = ["derive"] }
+libmoonlight = { path = "./crates/libmoonlight" }
+reqwest = { version = "0.12.12", features = ["blocking", "json", "rustls-tls"], default-features = false }
+eframe = { version = "0.30.0", features = ["accesskit", "default_fonts", "persistence"] }
+eyre = "0.6.12"
+flate2 = "1.0.35"
+egui = "0.30.0"
+flume = "0.11.1"
+tar = "0.4.43"
+serde_json = "1.0.135"
+thiserror = "2.0.9"
+color-eyre = { version = "0.6.3", default-features = false }
+clap = { version = "4.5.24", features = ["derive"] }
+serde = { version = "1.0.217", features = ["derive"] }
 log = "0.4.22"
-env_logger = "0.11.5"
+env_logger = "0.11.6"

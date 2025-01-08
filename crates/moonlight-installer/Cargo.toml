@@ -1,21 +1,20 @@
 [package]
 name = "moonlight-installer"
-license = "MIT"
-version = "0.2.1"
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+version.workspace = true
 
 [dependencies]
-eframe = { version = "0.29.1", features = [
-  "accesskit",
-  "default_fonts",
-  "persistence",
-] }
-egui = "0.29.1"
-flume = "0.11.0"
+eframe = { workspace = true }
+egui = { workspace = true }
+flume = { workspace = true }
 serde = { workspace = true }
 log = { workspace = true }
 env_logger = { workspace = true }
-libmoonlight = { path = "../libmoonlight" }
+libmoonlight = { workspace = true }
 
 [package.metadata.bundle]
 name = "moonlight installer"
