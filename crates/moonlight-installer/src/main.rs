@@ -19,7 +19,7 @@ fn main() -> eframe::Result {
     };
 
     eframe::run_native(
-        "Yet another Discord mod installer",
+        "moonlight installer",
         native_options,
         Box::new(|cc| Ok(Box::new(app::App::new(cc)))),
     )

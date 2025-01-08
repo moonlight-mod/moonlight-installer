@@ -8,7 +8,7 @@ use std::path::PathBuf;
 	author=clap::crate_authors!(),
 	version=clap::crate_version!(),
     long_version=clap::crate_version!(),
-	about="Yet another Discord mod installer",
+	about="moonlight installer",
 	subcommand_required=true,
 	arg_required_else_help=true,
 )]
