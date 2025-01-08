@@ -1,11 +1,24 @@
+use clap::{CommandFactory, Parser, Subcommand};
+use libmoonlight::detect_install;
+use libmoonlight::types::MoonlightBranch;
 use std::path::PathBuf;
 
-use clap::Parser;
-use libmoonlight::{detect_install, types::MoonlightBranch};
+#[derive(Parser, Debug)]
+#[clap(
+    author=clap::crate_authors!(),
+    version=clap::crate_version!(),
+    long_version=clap::crate_version!(),
+    about="moonlight installer",
+    subcommand_required=true,
+    arg_required_else_help=true,
+)]
+pub struct Cli {
+    #[clap(subcommand)]
+    command: Commands,
+}
 
-#[derive(Parser)]
-#[clap(version)]
-pub enum Args {
+#[derive(Subcommand, Debug)]
+pub enum Commands {
     /// Install or update moonlight
     Install { branch: MoonlightBranch },
 
@@ -20,22 +33,29 @@ pub enum Args {
 
     /// Unpatch a Discord install
     Unpatch { exe: PathBuf },
+
+    /// Generate shell completions
+    Completions {
+        #[clap(value_enum)]
+        shell: clap_complete::Shell,
+    },
 }
 
-fn main() -> anyhow::Result<()> {
+fn main() -> eyre::Result<()> {
+    color_eyre::install()?;
     env_logger::init_from_env(env_logger::Env::new().filter_or("MOONLIGHT_LOG", "info"));
-    let args = Args::parse();
+    let cli = Cli::parse();
     let installer = libmoonlight::Installer::new();
 
-    match args {
-        Args::Install { branch } => {
+    match cli.command {
+        Commands::Install { branch } => {
             log::info!("Downloading moonlight branch {}", branch);
             let ver = installer.download_moonlight(branch)?;
             installer.set_downloaded_version(&ver)?;
             log::info!("Downloaded version {}", ver);
         }
 
-        Args::Patch { exe, moonlight } => {
+        Commands::Patch { exe, moonlight } => {
             log::info!("Patching install at {:?}", exe);
             let install = detect_install(&exe);
             if let Some(install) = install {
@@ -44,7 +64,7 @@ fn main() -> anyhow::Result<()> {
                     std::process::exit(0);
                 }
 
-                installer.patch_install(install.install, moonlight)?;
+                installer.patch_install(&install.install, moonlight)?;
                 log::info!("Patched install at {:?}", exe);
             } else {
                 log::error!("Failed to detect install at {:?}", exe);
@@ -52,7 +72,7 @@ fn main() -> anyhow::Result<()> {
             }
         }
 
-        Args::Unpatch { exe: dir } => {
+        Commands::Unpatch { exe: dir } => {
             log::info!("Unpatching install at {:?}", dir);
             let install = detect_install(&dir);
             if let Some(install) = install {
@@ -61,13 +81,20 @@ fn main() -> anyhow::Result<()> {
                     std::process::exit(0);
                 }
 
-                installer.unpatch_install(install.install)?;
+                installer.unpatch_install(&install.install)?;
                 log::info!("Unpatched install at {:?}", dir);
             } else {
                 log::error!("Failed to detect install at {:?}", dir);
                 std::process::exit(1);
             }
         }
+
+        Commands::Completions { shell } => clap_complete::generate(
+            shell,
+            &mut Cli::command(),
+            "moonlight-cli",
+            &mut std::io::stdout().lock(),
+        ),
     }
 
     Ok(())

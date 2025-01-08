@@ -1,8 +1,6 @@
-use crate::{
-    config::Config,
-    logic::{app_logic_thread, LogicCommand, LogicResponse},
-};
-use libmoonlight::{branch_desc, branch_name, types::*};
+use crate::config::Config;
+use crate::logic::{app_logic_thread, LogicCommand, LogicResponse};
+use libmoonlight::types::{Branch, ErrorCode, InstallInfo, InstallerError, MoonlightBranch};
 use std::time::Duration;
 
 #[derive(Debug, Default)]
@@ -36,23 +34,22 @@ pub struct App {
 const PATCH_TOOLIP: &str = "Download moonlight first to patch a Discord installation.";
 const RESET_CONFIG_TOOLTIP: &str =
     "Backs up and removes the moonlight config file for this Discord installation.";
-
 const WINDOWS_FILE_LOCK: &str = "Discord is currently open, which locks moonlight's ability to modify its files. Please completely close Discord and make sure it does not appear in the taskbar.\nAlternatively, click the button below to attempt to close Discord forcefully. This will disconnect you from any voice calls you are in and may cause issues.";
 const MACOS_NO_PERMISSION: &str = "moonlight is unable to modify your Discord installation. This is because your MacOS system privacy settings doesn't allow us to do so.\nYou can fix this via a pop-up you should've gotten, or by going to System Settings > Privacy & Security > App Management and allowing moonlight installer.";
 const NETWORK_FAILED: &str = "moonlight is unable to download required files, likely due to a network issue. Please check your internet connection and try again.";
 
 impl App {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        let mut app: App = if let Some(storage) = cc.storage {
+        let mut app: Self = if let Some(storage) = cc.storage {
             eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default()
         } else {
-            Default::default()
+            Self::default()
         };
 
         let (main_tx, logic_rx) = flume::unbounded::<LogicCommand>();
         let (logic_tx, main_rx) = flume::unbounded::<LogicResponse>();
         std::thread::spawn(move || {
-            if let Err(err) = app_logic_thread(logic_rx, logic_tx) {
+            if let Err(err) = app_logic_thread(&logic_rx, &logic_tx) {
                 log::error!("Logic thread error: {:?}", err);
             }
         });
@@ -174,7 +171,7 @@ impl App {
                 ui.label(NETWORK_FAILED);
             }
 
-            _ => {
+            ErrorCode::Unknown => {
                 ui.label("An unknown error occurred. Please report this.");
                 ui.label(err.message.clone());
             }
@@ -205,15 +202,15 @@ impl eframe::App for App {
 
                             ui.vertical(|ui| {
                                 egui::ComboBox::from_label("Selected branch")
-                                    .selected_text(branch_name(self.config.branch))
+                                    .selected_text(self.config.branch.name())
                                     .show_ui(ui, |ui| {
                                         for &branch in
                                             &[MoonlightBranch::Stable, MoonlightBranch::Nightly]
                                         {
                                             let str = format!(
                                                 "{}\n  {}",
-                                                branch_name(branch),
-                                                branch_desc(branch)
+                                                branch.name(),
+                                                branch.description()
                                             );
                                             if ui
                                                 .selectable_value(

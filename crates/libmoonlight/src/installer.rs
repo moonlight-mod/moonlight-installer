@@ -1,9 +1,8 @@
-use crate::{get_app_dir, get_moonlight_dir, PATCHED_ASAR};
-
-use super::{
-    types::*,
-    util::{get_branch_config, get_download_dir},
+use super::types::{
+    Branch, DetectedInstall, GitHubRelease, InstallInfo, InstallerResult, MoonlightBranch,
 };
+use super::util::get_download_dir;
+use crate::{get_app_dir, get_moonlight_dir, PATCHED_ASAR};
 use std::path::PathBuf;
 
 const USER_AGENT: &str =
@@ -17,9 +16,16 @@ const NIGHTLY_DIST_URL: &str = "https://moonlight-mod.github.io/moonlight/dist.t
 
 pub struct Installer;
 
+impl Default for Installer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Installer {
-    pub fn new() -> Self {
-        Installer {}
+    #[must_use]
+    pub const fn new() -> Self {
+        Self {}
     }
 
     pub fn download_moonlight(&self, branch: MoonlightBranch) -> InstallerResult<String> {
@@ -83,10 +89,7 @@ impl Installer {
     }
 
     fn get_stable_release(&self) -> InstallerResult<GitHubRelease> {
-        let url = format!(
-            "https://api.github.com/repos/{}/releases/latest",
-            GITHUB_REPO
-        );
+        let url = format!("https://api.github.com/repos/{GITHUB_REPO}/releases/latest");
         let resp = reqwest::blocking::Client::new()
             .get(url)
             .header("User-Agent", USER_AGENT)
@@ -100,7 +103,7 @@ impl Installer {
         Ok(resp
             .lines()
             .next()
-            .map(|x| x.to_string())
+            .map(ToString::to_string)
             .unwrap_or_default())
     }
 
@@ -109,8 +112,8 @@ impl Installer {
             installs
                 .into_iter()
                 .map(|install| {
-                    let patched = self.is_install_patched(install.clone()).unwrap_or(false);
-                    let has_config = get_branch_config(install.branch).exists();
+                    let patched = self.is_install_patched(&install).unwrap_or(false);
+                    let has_config = install.branch.config().exists();
 
                     InstallInfo {
                         install,
@@ -147,7 +150,7 @@ impl Installer {
                     if path.exists() {
                         // app-(version)
                         let mut app_dirs: Vec<_> = std::fs::read_dir(&path)?
-                            .filter_map(|x| x.ok())
+                            .filter_map(Result::ok)
                             .filter(|x| x.file_name().to_string_lossy().starts_with("app-"))
                             .collect();
 
@@ -194,7 +197,7 @@ impl Installer {
                             _ => unreachable!(),
                         };
 
-                        let macos_app_dir = apps_dir.join(format!("{}.app", branch_name));
+                        let macos_app_dir = apps_dir.join(format!("{branch_name}.app"));
 
                         if !macos_app_dir.exists() {
                             continue;
@@ -205,7 +208,7 @@ impl Installer {
                         installs.push(DetectedInstall {
                             branch,
                             path: app_dir,
-                        })
+                        });
                     }
                 }
 
@@ -248,13 +251,13 @@ impl Installer {
 
     // This will probably match other client mods that replace app.asar, but it
     // will just prompt them to unpatch, so I think it's fine
-    fn is_install_patched(&self, install: DetectedInstall) -> InstallerResult<bool> {
+    fn is_install_patched(&self, install: &DetectedInstall) -> InstallerResult<bool> {
         Ok(!get_app_dir(&install.path)?.join("app.asar").exists())
     }
 
     pub fn patch_install(
         &self,
-        install: DetectedInstall,
+        install: &DetectedInstall,
         moonlight_dir: Option<PathBuf>,
     ) -> InstallerResult<()> {
         // TODO: flatpak and stuff
@@ -270,21 +273,20 @@ impl Installer {
         });
         std::fs::write(app_dir.join("app/package.json"), json.to_string())?;
 
-        let moonlight_dir = moonlight_dir.unwrap_or_else(|| get_download_dir());
+        let moonlight_dir = moonlight_dir.unwrap_or_else(get_download_dir);
         let moonlight_injector = moonlight_dir.join("injector.js");
         let moonlight_injector_str = serde_json::to_string(&moonlight_injector).unwrap();
         let injector = format!(
-            r#"require({}).inject(
-  require("path").resolve(__dirname, "../{}")
+            r#"require({moonlight_injector_str}).inject(
+  require("path").resolve(__dirname, "../{PATCHED_ASAR}")
 );
-"#,
-            moonlight_injector_str, PATCHED_ASAR
+"#
         );
         std::fs::write(app_dir.join("app/injector.js"), injector)?;
         Ok(())
     }
 
-    pub fn unpatch_install(&self, install: DetectedInstall) -> InstallerResult<()> {
+    pub fn unpatch_install(&self, install: &DetectedInstall) -> InstallerResult<()> {
         let app_dir = get_app_dir(&install.path)?;
         let asar = app_dir.join(PATCHED_ASAR);
         std::fs::rename(&asar, asar.with_file_name("app.asar"))?;
@@ -293,7 +295,7 @@ impl Installer {
     }
 
     pub fn reset_config(&self, branch: Branch) {
-        let config = get_branch_config(branch);
+        let config = branch.config();
         let new_name = format!(
             "{}-backup-{}.json",
             config.file_stem().unwrap().to_string_lossy(),

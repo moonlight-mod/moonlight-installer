@@ -1,3 +1,4 @@
+#[allow(clippy::unnecessary_wraps, reason = "system-dependent buildscript")]
 fn main() -> std::io::Result<()> {
     #[cfg(windows)]
     {

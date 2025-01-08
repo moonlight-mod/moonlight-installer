@@ -1,4 +1,5 @@
-use libmoonlight::{kill_discord, types::*, Installer};
+use libmoonlight::types::{Branch, DetectedInstall, InstallInfo, InstallerResult, MoonlightBranch};
+use libmoonlight::Installer;
 use std::path::PathBuf;
 
 pub enum LogicCommand {
@@ -22,8 +23,8 @@ pub enum LogicResponse {
 }
 
 pub fn app_logic_thread(
-    rx: flume::Receiver<LogicCommand>,
-    tx: flume::Sender<LogicResponse>,
+    rx: &flume::Receiver<LogicCommand>,
+    tx: &flume::Sender<LogicResponse>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let installer = Installer::new();
 
@@ -47,27 +48,25 @@ pub fn app_logic_thread(
             LogicCommand::UpdateMoonlight(branch) => {
                 let err = installer.download_moonlight(branch);
                 if let Ok(ref version) = err {
-                    installer.set_downloaded_version(&version).ok();
+                    installer.set_downloaded_version(version).ok();
                 }
                 tx.send(LogicResponse::UpdateComplete(err))?;
             }
 
             LogicCommand::PatchInstall(install) => {
                 let resp = installer
-                    .patch_install(install.clone(), None)
-                    .map(|_| install.path);
+                    .patch_install(&install, None)
+                    .map(|()| install.path);
                 tx.send(LogicResponse::PatchComplete(resp))?;
             }
 
             LogicCommand::UnpatchInstall(install) => {
-                let resp = installer
-                    .unpatch_install(install.clone())
-                    .map(|_| install.path);
+                let resp = installer.unpatch_install(&install).map(|()| install.path);
                 tx.send(LogicResponse::UnpatchComplete(resp))?;
             }
 
             LogicCommand::KillDiscord(branch) => {
-                kill_discord(branch);
+                branch.kill_discord();
             }
 
             LogicCommand::ResetConfig(branch) => {

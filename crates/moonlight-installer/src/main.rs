@@ -22,7 +22,5 @@ fn main() -> eframe::Result {
         "moonlight installer",
         native_options,
         Box::new(|cc| Ok(Box::new(app::App::new(cc)))),
-    )?;
-
-    Ok(())
+    )
 }
