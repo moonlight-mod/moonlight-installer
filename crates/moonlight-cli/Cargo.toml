@@ -14,3 +14,4 @@ clap = { workspace = true }
 log = { workspace = true }
 env_logger = { workspace = true }
 libmoonlight = { workspace = true }
+clap_complete = { workspace = true  }

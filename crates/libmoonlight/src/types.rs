@@ -1,9 +1,10 @@
 use std::{fmt::Display, path::PathBuf};
 use thiserror::Error;
+use serde::{Serialize, Deserialize};
 
-#[derive(
-    serde::Serialize, serde::Deserialize, clap::ValueEnum, Debug, Clone, Copy, PartialEq, Eq,
-)]
+use crate::get_moonlight_dir;
+
+#[derive(Serialize, Deserialize, clap::ValueEnum, Debug, Clone, Copy, PartialEq, Eq,)]
 pub enum MoonlightBranch {
     Stable,
     Nightly,
@@ -18,7 +19,23 @@ impl Display for MoonlightBranch {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+impl MoonlightBranch {
+    pub fn name(&self) -> &'static str {
+        match self {
+            MoonlightBranch::Stable => "Stable",
+            MoonlightBranch::Nightly => "Nightly",
+        }
+    }
+
+    pub fn description(&self) -> &'static str {
+        match self {
+            MoonlightBranch::Stable => "Periodic updates and fixes when they're ready. Suggested for most users.",
+            MoonlightBranch::Nightly => "In-progress development snapshots while it's being worked on. May contain issues.",
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum Branch {
     Stable,
@@ -38,14 +55,47 @@ impl Display for Branch {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+impl Branch {
+    pub fn config(&self) -> PathBuf {
+        get_moonlight_dir().join(format!("{}.json", self.to_string().to_lowercase()))
+    }
+
+    pub fn kill_discord(&self) {
+        let name = match self {
+            Branch::Stable => "Discord",
+            Branch::PTB => "DiscordPTB",
+            Branch::Canary => "DiscordCanary",
+            Branch::Development => "DiscordDevelopment",
+        };
+    
+        match std::env::consts::OS {
+            "windows" => {
+                std::process::Command::new("taskkill")
+                    .args(["/F", "/IM", &format!("{}.exe", name)])
+                    .output()
+                    .ok();
+            }
+    
+            "macos" | "linux" => {
+                std::process::Command::new("killall")
+                    .args([name])
+                    .output()
+                    .ok();
+            }
+    
+            _ => unimplemented!()
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DetectedInstall {
     pub branch: Branch,
     pub path: PathBuf,
 }
 
 // Just DetectedInstall but tracking patched for the UI
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InstallInfo {
     pub install: DetectedInstall,
     pub patched: bool,
@@ -53,19 +103,19 @@ pub struct InstallInfo {
 }
 
 // Lot more in here but idc
-#[derive(serde::Deserialize, Debug)]
+#[derive(Deserialize, Debug)]
 pub struct GitHubReleaseAsset {
     pub name: String,
     pub browser_download_url: String,
 }
 
-#[derive(serde::Deserialize, Debug)]
+#[derive(Deserialize, Debug)]
 pub struct GitHubRelease {
     pub name: String,
     pub assets: Vec<GitHubReleaseAsset>,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum ErrorCode {
     Unknown,
     WindowsFileLock,
@@ -75,7 +125,7 @@ pub enum ErrorCode {
 
 pub type InstallerResult<T> = std::result::Result<T, InstallerError>;
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Error)]
+#[derive(Serialize, Deserialize, Debug, Error)]
 pub struct InstallerError {
     pub message: String,
     pub code: ErrorCode,

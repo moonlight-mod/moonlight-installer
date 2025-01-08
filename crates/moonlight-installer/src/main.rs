@@ -18,11 +18,9 @@ fn main() -> eframe::Result {
         ..Default::default()
     };
 
-    eframe::run_native(
-        "moonlight installer",
+    Ok(eframe::run_native(
+        "moonlight installer 🌙🌌",
         native_options,
         Box::new(|cc| Ok(Box::new(app::App::new(cc)))),
-    )?;
-
-    Ok(())
+    )?)
 }

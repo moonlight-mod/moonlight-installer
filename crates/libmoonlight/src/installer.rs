@@ -1,13 +1,8 @@
 use crate::{get_app_dir, get_moonlight_dir, PATCHED_ASAR};
-
-use super::{
-    types::*,
-    util::{get_branch_config, get_download_dir},
-};
+use super::{types::*, util::get_download_dir};
 use std::path::PathBuf;
 
-const USER_AGENT: &str =
-    "moonlight-installer (https://github.com/moonlight-mod/moonlight-installer)";
+const USER_AGENT: &str = "moonlight-installer (https://github.com/moonlight-mod/moonlight-installer)";
 const INSTALLED_VERSION_FILE: &str = ".moonlight-installed-version";
 
 const GITHUB_REPO: &str = "moonlight-mod/moonlight";
@@ -110,7 +105,7 @@ impl Installer {
                 .into_iter()
                 .map(|install| {
                     let patched = self.is_install_patched(install.clone()).unwrap_or(false);
-                    let has_config = get_branch_config(install.branch).exists();
+                    let has_config = install.branch.config().exists();
 
                     InstallInfo {
                         install,
@@ -293,7 +288,7 @@ impl Installer {
     }
 
     pub fn reset_config(&self, branch: Branch) {
-        let config = get_branch_config(branch);
+        let config = branch.config();
         let new_name = format!(
             "{}-backup-{}.json",
             config.file_stem().unwrap().to_string_lossy(),

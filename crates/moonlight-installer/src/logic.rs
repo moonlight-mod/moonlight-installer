@@ -1,4 +1,4 @@
-use libmoonlight::{kill_discord, types::*, Installer};
+use libmoonlight::{types::*, Installer};
 use std::path::PathBuf;
 
 pub enum LogicCommand {
@@ -67,7 +67,7 @@ pub fn app_logic_thread(
             }
 
             LogicCommand::KillDiscord(branch) => {
-                kill_discord(branch);
+                branch.kill_discord();
             }
 
             LogicCommand::ResetConfig(branch) => {

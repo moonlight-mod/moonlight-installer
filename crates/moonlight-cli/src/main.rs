@@ -1,6 +1,5 @@
 use std::path::PathBuf;
-
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 use libmoonlight::{detect_install, types::MoonlightBranch};
 
 #[derive(Parser)]
@@ -20,6 +19,9 @@ pub enum Args {
 
     /// Unpatch a Discord install
     Unpatch { exe: PathBuf },
+
+    /// Generate shell completions
+    Completions { shell: clap_complete::Shell },
 }
 
 fn main() -> color_eyre::eyre::Result<()> {
@@ -68,6 +70,12 @@ fn main() -> color_eyre::eyre::Result<()> {
                 log::error!("Failed to detect install at {:?}", dir);
                 std::process::exit(1);
             }
+        }
+
+        Args::Completions { shell } => {
+            let mut app = Args::command();
+            let bin_name = app.get_name().to_string();
+            clap_complete::generate(shell, &mut app, bin_name, &mut std::io::stdout());
         }
     }
 

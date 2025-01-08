@@ -15,3 +15,4 @@ serde_json = { workspace = true }
 serde = { workspace = true }
 clap = { workspace = true }
 thiserror = { workspace = true }
+dirs = { workspace = true }
