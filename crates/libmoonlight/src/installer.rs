@@ -1,6 +1,4 @@
-use super::types::{
-    Branch, DetectedInstall, GitHubRelease, InstallInfo, InstallerResult, MoonlightBranch,
-};
+use super::types::{Branch, DetectedInstall, GitHubRelease, InstallInfo, MoonlightBranch};
 use super::util::get_download_dir;
 use crate::{get_app_dir, get_moonlight_dir, PATCHED_ASAR};
 use std::path::PathBuf;
@@ -28,7 +26,7 @@ impl Installer {
         Self {}
     }
 
-    pub fn download_moonlight(&self, branch: MoonlightBranch) -> InstallerResult<String> {
+    pub fn download_moonlight(&self, branch: MoonlightBranch) -> crate::Result<String> {
         let dir = get_download_dir();
 
         if dir.exists() {
@@ -43,7 +41,7 @@ impl Installer {
         })
     }
 
-    fn download_stable(&self, dir: PathBuf) -> InstallerResult<String> {
+    fn download_stable(&self, dir: PathBuf) -> crate::Result<String> {
         let release = self.get_stable_release()?;
         let asset = release
             .assets
@@ -61,7 +59,7 @@ impl Installer {
         Ok(release.name)
     }
 
-    fn download_nightly(&self, dir: PathBuf) -> InstallerResult<String> {
+    fn download_nightly(&self, dir: PathBuf) -> crate::Result<String> {
         let version = self.get_nightly_version()?;
         let resp = reqwest::blocking::get(NIGHTLY_DIST_URL)?;
         let mut archive = tar::Archive::new(flate2::read::GzDecoder::new(resp));
@@ -69,26 +67,26 @@ impl Installer {
         Ok(version)
     }
 
-    pub fn get_latest_moonlight_version(&self, branch: MoonlightBranch) -> InstallerResult<String> {
+    pub fn get_latest_moonlight_version(&self, branch: MoonlightBranch) -> crate::Result<String> {
         match branch {
             MoonlightBranch::Stable => self.get_stable_release().map(|x| x.name),
             MoonlightBranch::Nightly => self.get_nightly_version(),
         }
     }
 
-    pub fn get_downloaded_version(&self) -> InstallerResult<Option<String>> {
+    pub fn get_downloaded_version(&self) -> crate::Result<Option<String>> {
         let dir = get_moonlight_dir();
         let version = std::fs::read_to_string(dir.join(INSTALLED_VERSION_FILE)).ok();
         Ok(version)
     }
 
-    pub fn set_downloaded_version(&self, version: &str) -> InstallerResult<()> {
+    pub fn set_downloaded_version(&self, version: &str) -> crate::Result<()> {
         let dir = get_moonlight_dir();
         std::fs::write(dir.join(INSTALLED_VERSION_FILE), version)?;
         Ok(())
     }
 
-    fn get_stable_release(&self) -> InstallerResult<GitHubRelease> {
+    fn get_stable_release(&self) -> crate::Result<GitHubRelease> {
         let url = format!("https://api.github.com/repos/{GITHUB_REPO}/releases/latest");
         let resp = reqwest::blocking::Client::new()
             .get(url)
@@ -98,7 +96,7 @@ impl Installer {
         Ok(resp)
     }
 
-    fn get_nightly_version(&self) -> InstallerResult<String> {
+    fn get_nightly_version(&self) -> crate::Result<String> {
         let resp = reqwest::blocking::get(NIGHTLY_REF_URL)?.text()?;
         Ok(resp
             .lines()
@@ -107,7 +105,7 @@ impl Installer {
             .unwrap_or_default())
     }
 
-    pub fn get_installs(&self) -> InstallerResult<Vec<InstallInfo>> {
+    pub fn get_installs(&self) -> crate::Result<Vec<InstallInfo>> {
         self.detect_installs().map(|installs| {
             installs
                 .into_iter()
@@ -125,7 +123,7 @@ impl Installer {
         })
     }
 
-    fn detect_installs(&self) -> InstallerResult<Vec<DetectedInstall>> {
+    fn detect_installs(&self) -> crate::Result<Vec<DetectedInstall>> {
         match std::env::consts::OS {
             "windows" => {
                 let appdata = std::env::var("LocalAppData").unwrap();
@@ -251,7 +249,7 @@ impl Installer {
 
     // This will probably match other client mods that replace app.asar, but it
     // will just prompt them to unpatch, so I think it's fine
-    fn is_install_patched(&self, install: &DetectedInstall) -> InstallerResult<bool> {
+    fn is_install_patched(&self, install: &DetectedInstall) -> crate::Result<bool> {
         Ok(!get_app_dir(&install.path)?.join("app.asar").exists())
     }
 
@@ -259,7 +257,7 @@ impl Installer {
         &self,
         install: &DetectedInstall,
         moonlight_dir: Option<PathBuf>,
-    ) -> InstallerResult<()> {
+    ) -> crate::Result<()> {
         // TODO: flatpak and stuff
         let app_dir = get_app_dir(&install.path)?;
         let asar = app_dir.join("app.asar");
@@ -286,7 +284,7 @@ impl Installer {
         Ok(())
     }
 
-    pub fn unpatch_install(&self, install: &DetectedInstall) -> InstallerResult<()> {
+    pub fn unpatch_install(&self, install: &DetectedInstall) -> crate::Result<()> {
         let app_dir = get_app_dir(&install.path)?;
         let asar = app_dir.join(PATCHED_ASAR);
         std::fs::rename(&asar, asar.with_file_name("app.asar"))?;

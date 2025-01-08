@@ -1,26 +1,30 @@
-use crate::types::{Branch, DetectedInstall, InstallInfo, InstallerResult};
+use crate::types::{Branch, DetectedInstall, InstallInfo};
 use std::path::{Path, PathBuf};
 
 const DOWNLOAD_DIR: &str = "dist";
 pub const PATCHED_ASAR: &str = "_app.asar";
 
 pub fn get_moonlight_dir() -> PathBuf {
-    let dir = std::env::var_os("MOONLIGHT_DIR").map(PathBuf::from)
-        .or_else(|| Some(match std::env::consts::OS {
-        "windows" => {
-            let appdata = std::env::var("APPDATA").unwrap();
-            PathBuf::from(appdata).join("moonlight-mod")
-        }
-        "macos" => {
-            let home = std::env::var("HOME").unwrap();
-            PathBuf::from(home).join("Library/Application Support/moonlight-mod")
-        }
-        "linux" => {
-            let home = std::env::var("HOME").unwrap();
-            PathBuf::from(home).join(".config/moonlight-mod")
-        }
-        _ => unimplemented!("Unsupported OS"),
-    })).unwrap();
+    let dir = std::env::var_os("MOONLIGHT_DIR")
+        .map(PathBuf::from)
+        .or_else(|| {
+            Some(match std::env::consts::OS {
+                "windows" => {
+                    let appdata = std::env::var("APPDATA").unwrap();
+                    PathBuf::from(appdata).join("moonlight-mod")
+                }
+                "macos" => {
+                    let home = std::env::var("HOME").unwrap();
+                    PathBuf::from(home).join("Library/Application Support/moonlight-mod")
+                }
+                "linux" => {
+                    let home = std::env::var("HOME").unwrap();
+                    PathBuf::from(home).join(".config/moonlight-mod")
+                }
+                _ => unimplemented!("Unsupported OS"),
+            })
+        })
+        .unwrap();
 
     if !dir.exists() {
         let _ = std::fs::create_dir_all(&dir);
@@ -61,7 +65,7 @@ pub fn detect_install(exe: &Path) -> Option<InstallInfo> {
     })
 }
 
-pub fn get_app_dir(path: &Path) -> InstallerResult<PathBuf> {
+pub fn get_app_dir(path: &Path) -> crate::Result<PathBuf> {
     match std::env::consts::OS {
         "windows" | "linux" => Ok(path.join("resources")),
         "macos" => Ok(path.to_path_buf()),

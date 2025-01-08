@@ -1,4 +1,4 @@
-use libmoonlight::types::{Branch, DetectedInstall, InstallInfo, InstallerResult, MoonlightBranch};
+use libmoonlight::types::{Branch, DetectedInstall, InstallInfo, MoonlightBranch};
 use libmoonlight::Installer;
 use std::path::PathBuf;
 
@@ -16,10 +16,10 @@ pub enum LogicCommand {
 pub enum LogicResponse {
     Installs(Vec<InstallInfo>),
     DownloadedVersion(Option<String>),
-    LatestVersion(InstallerResult<String>),
-    UpdateComplete(InstallerResult<String>),
-    PatchComplete(InstallerResult<PathBuf>),
-    UnpatchComplete(InstallerResult<PathBuf>),
+    LatestVersion(libmoonlight::Result<String>),
+    UpdateComplete(libmoonlight::Result<String>),
+    PatchComplete(libmoonlight::Result<PathBuf>),
+    UnpatchComplete(libmoonlight::Result<PathBuf>),
 }
 
 pub fn app_logic_thread(
