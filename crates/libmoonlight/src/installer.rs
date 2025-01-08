@@ -215,7 +215,8 @@ impl Installer {
 
             "linux" => {
                 let home = std::env::var("HOME").unwrap();
-                let local_share = PathBuf::from(home).join(".local/share");
+                let local_share = std::env::var_os("MOONLIGHT_DISCORD_SHARE_LINUX").map(PathBuf::from)
+                    .unwrap_or(PathBuf::from(home).join(".local/share"));
 
                 let dirs = vec![
                     "Discord",
