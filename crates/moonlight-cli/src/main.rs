@@ -5,12 +5,12 @@ use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
 #[clap(
-	author=clap::crate_authors!(),
-	version=clap::crate_version!(),
+    author=clap::crate_authors!(),
+    version=clap::crate_version!(),
     long_version=clap::crate_version!(),
-	about="moonlight installer",
-	subcommand_required=true,
-	arg_required_else_help=true,
+    about="moonlight installer",
+    subcommand_required=true,
+    arg_required_else_help=true,
 )]
 pub struct Cli {
     #[clap(subcommand)]
