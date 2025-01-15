@@ -1,5 +1,5 @@
 use super::types::{Branch, DetectedInstall, GitHubRelease, InstallInfo, MoonlightBranch};
-use super::util::get_download_dir;
+use super::util::{get_download_dir, get_home_dir};
 use crate::{get_app_dir, get_moonlight_dir, PATCHED_ASAR};
 use std::path::PathBuf;
 
@@ -127,23 +127,15 @@ impl Installer {
         match std::env::consts::OS {
             "windows" => {
                 let appdata = std::env::var("LocalAppData").unwrap();
-                let dirs = vec![
-                    "Discord",
-                    "DiscordPTB",
-                    "DiscordCanary",
-                    "DiscordDevelopment",
+                let dirs = [
+                    ("Discord", Branch::Stable),
+                    ("Discord PTB", Branch::PTB),
+                    ("Discord Canary", Branch::Canary),
+                    ("Discord Development", Branch::Development),
                 ];
                 let mut installs = vec![];
 
-                for dir in dirs {
-                    let branch = match dir {
-                        "Discord" => Branch::Stable,
-                        "DiscordPTB" => Branch::PTB,
-                        "DiscordCanary" => Branch::Canary,
-                        "DiscordDevelopment" => Branch::Development,
-                        _ => unreachable!(),
-                    };
-
+                for (dir, branch) in dirs {
                     let path = PathBuf::from(appdata.clone()).join(dir);
                     if path.exists() {
                         // app-(version)
@@ -173,28 +165,20 @@ impl Installer {
             "macos" => {
                 let apps_dirs = vec![
                     PathBuf::from("/Applications"),
-                    PathBuf::from(std::env::var("HOME").unwrap()).join("Applications"),
+                    get_home_dir().join("Applications"),
                 ];
 
-                let branch_names = vec![
-                    "Discord",
-                    "Discord PTB",
-                    "Discord Canary",
-                    "Discord Development",
+                let branches = [
+                    ("Discord", Branch::Stable),
+                    ("Discord PTB", Branch::PTB),
+                    ("Discord Canary", Branch::Canary),
+                    ("Discord Development", Branch::Development),
                 ];
 
                 let mut installs = vec![];
 
                 for apps_dir in apps_dirs {
-                    for branch_name in branch_names.clone() {
-                        let branch = match branch_name {
-                            "Discord" => Branch::Stable,
-                            "Discord PTB" => Branch::PTB,
-                            "Discord Canary" => Branch::Canary,
-                            "Discord Development" => Branch::Development,
-                            _ => unreachable!(),
-                        };
-
+                    for (branch_name, branch) in branches {
                         let macos_app_dir = apps_dir.join(format!("{branch_name}.app"));
 
                         if !macos_app_dir.exists() {
@@ -214,29 +198,24 @@ impl Installer {
             }
 
             "linux" => {
-                let home = std::env::var("HOME").unwrap();
                 let local_share = std::env::var_os("MOONLIGHT_DISCORD_SHARE_LINUX")
-                    .ok_or("XDG_DATA_HOME")
+                    .or_else(|| std::env::var_os("XDG_DATA_HOME"))
                     .map(PathBuf::from)
-                    .unwrap_or(PathBuf::from(home).join(".local/share"));
+                    .unwrap_or_else(|| get_home_dir().join(".local/share"));
 
-                let dirs = vec![
-                    "Discord",
-                    "DiscordPTB",
-                    "DiscordCanary",
-                    "DiscordDevelopment",
+                // TODO: special case flatpaks to override fs perms for xdg-config/moonlight-mod
+                let dirs = [
+                    ("Discord", Branch::Stable),
+                    ("DiscordPTB", Branch::PTB),
+                    ("DiscordCanary", Branch::Canary),
+                    ("DiscordDevelopment", Branch::Development),
+                    // flatpak user installations
+                    ("flatpak/app/com.discordapp.Discord/current/active/files/discord", Branch::Stable),
+                    ("flatpak/app/com.discordapp.DiscordCanary/current/active/files/discord-canary", Branch::Canary),
                 ];
 
                 let mut installs = vec![];
-                for dir in dirs {
-                    let branch = match dir {
-                        "Discord" => Branch::Stable,
-                        "DiscordPTB" => Branch::PTB,
-                        "DiscordCanary" => Branch::Canary,
-                        "DiscordDevelopment" => Branch::Development,
-                        _ => unreachable!(),
-                    };
-
+                for (dir, branch) in dirs {
                     let path = local_share.join(dir);
                     if path.exists() {
                         installs.push(DetectedInstall { branch, path });

@@ -1,3 +1,6 @@
+#[cfg(unix)]
+use nix::unistd::{Uid, User};
+
 use crate::types::{Branch, DetectedInstall, InstallInfo};
 use std::path::{Path, PathBuf};
 
@@ -76,4 +79,19 @@ pub fn get_app_dir(path: &Path) -> crate::Result<PathBuf> {
 #[must_use]
 pub fn get_download_dir() -> PathBuf {
     get_moonlight_dir().join(DOWNLOAD_DIR)
+}
+
+pub fn get_home_dir() -> PathBuf {
+    #[cfg(windows)]
+    unimplemented!();
+    #[cfg(unix)]
+    std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .or_else(|| {
+            User::from_uid(Uid::effective())
+                .ok()
+                .flatten()
+                .map(|u| u.dir)
+        })
+        .expect("$HOME to be set or user to be in /etc/passwd")
 }
