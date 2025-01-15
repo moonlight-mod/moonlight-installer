@@ -4,7 +4,7 @@ use nix::unistd::{Uid, User};
 use crate::types::{Branch, DetectedInstall, InstallInfo};
 use std::path::{Path, PathBuf};
 
-const DOWNLOAD_DIR: &str = "dist";
+pub const DOWNLOAD_DIR: &str = "dist";
 pub const PATCHED_ASAR: &str = "_app.asar";
 
 pub fn get_moonlight_dir() -> PathBuf {

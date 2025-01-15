@@ -1,6 +1,6 @@
 use super::types::{Branch, DetectedInstall, GitHubRelease, InstallInfo, MoonlightBranch};
 use super::util::{get_download_dir, get_home_dir};
-use crate::{get_app_dir, get_moonlight_dir, PATCHED_ASAR};
+use crate::{get_app_dir, get_moonlight_dir, DOWNLOAD_DIR, PATCHED_ASAR};
 use std::path::PathBuf;
 
 const USER_AGENT: &str =
@@ -253,14 +253,16 @@ impl Installer {
         });
         std::fs::write(app_dir.join("app/package.json"), json.to_string())?;
 
-        let moonlight_dir = moonlight_dir.unwrap_or_else(get_download_dir);
-        let moonlight_injector = moonlight_dir.join("injector.js");
-        let moonlight_injector_str = serde_json::to_string(&moonlight_injector).unwrap();
+        let moonlight_injector = moonlight_dir.map(|m| m.join("injector.js"));
         let injector = format!(
-            r#"require({moonlight_injector_str}).inject(
-  require("path").resolve(__dirname, "../{PATCHED_ASAR}")
-);
-"#
+            r#"const MOONLIGHT_INJECTOR = {};
+const PATCHED_ASAR = {};
+const DOWNLOAD_DIR = {};
+{}"#,
+            serde_json::to_string(&moonlight_injector).unwrap(),
+            serde_json::to_string(PATCHED_ASAR).unwrap(),
+            serde_json::to_string(DOWNLOAD_DIR).unwrap(),
+            include_str!("injector.js")
         );
         std::fs::write(app_dir.join("app/injector.js"), injector)?;
         Ok(())
