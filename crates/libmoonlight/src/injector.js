@@ -2,8 +2,8 @@ const os = require("os");
 const path = require("path");
 const process = require("process");
 
-function getInjector() {
-  if (MOONLIGHT_INJECTOR !== null) return MOONLIGHT_INJECTOR;
+function getInjector(override) {
+  if (override !== null) return override;
 
   // resolve default path
   switch (os.platform()) {
@@ -22,5 +22,6 @@ function getInjector() {
   }
 }
 
-console.error(`injecting ${getInjector()}`);
-require(getInjector()).inject(require("path").resolve(__dirname, `../${PATCHED_ASAR}`));
+const injector = getInjector(MOONLIGHT_INJECTOR);
+console.error(`injecting ${injector}`);
+require(injector).inject(require("path").resolve(__dirname, `../${PATCHED_ASAR}`));
