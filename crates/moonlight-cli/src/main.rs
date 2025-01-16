@@ -60,8 +60,8 @@ fn main() -> eyre::Result<()> {
             let install = detect_install(&exe);
             if let Some(install) = install {
                 if install.patched {
-                    log::warn!("Install already patched");
-                    std::process::exit(0);
+                    log::warn!("Client mod appears to already be patched - unpatching first");
+                    installer.unpatch_install(&install.install)?;
                 }
 
                 installer.patch_install(&install.install, moonlight)?;
@@ -72,9 +72,9 @@ fn main() -> eyre::Result<()> {
             }
         }
 
-        Commands::Unpatch { exe: dir } => {
-            log::info!("Unpatching install at {:?}", dir);
-            let install = detect_install(&dir);
+        Commands::Unpatch { exe } => {
+            log::info!("Unpatching install at {:?}", exe);
+            let install = detect_install(&exe);
             if let Some(install) = install {
                 if !install.patched {
                     log::warn!("Install already unpatched");
@@ -82,9 +82,9 @@ fn main() -> eyre::Result<()> {
                 }
 
                 installer.unpatch_install(&install.install)?;
-                log::info!("Unpatched install at {:?}", dir);
+                log::info!("Unpatched install at {:?}", exe);
             } else {
-                log::error!("Failed to detect install at {:?}", dir);
+                log::error!("Failed to detect install at {:?}", exe);
                 std::process::exit(1);
             }
         }
