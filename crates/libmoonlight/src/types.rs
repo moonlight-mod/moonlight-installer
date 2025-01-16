@@ -297,7 +297,8 @@ where
         S: serde::Serializer,
     {
         let as_strings: Vec<String> = self.iter().map(|x| x.to_string()).collect();
-        let v = as_strings.join(";");
+        let mut v = as_strings.join(";");
+        v += ";";
         serializer.serialize_str(&v)
     }
 }
@@ -333,7 +334,12 @@ where
             where
                 E: serde::de::Error,
             {
-                let parts: Vec<String> = v.split(';').map(String::from).collect();
+                let parts: Vec<String> = v
+                    .strip_suffix(";")
+                    .unwrap_or(v)
+                    .split(';')
+                    .map(String::from)
+                    .collect();
                 let mut vec = Vec::with_capacity(parts.len());
 
                 for part in parts {
