@@ -23,5 +23,4 @@ function getInjector(override) {
 }
 
 const injector = getInjector(MOONLIGHT_INJECTOR);
-console.error(`injecting ${injector}`);
 require(injector).inject(require("path").resolve(__dirname, `../${PATCHED_ASAR}`));
