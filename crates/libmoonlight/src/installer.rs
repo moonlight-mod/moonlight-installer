@@ -215,7 +215,8 @@ impl Installer {
 
             "linux" => {
                 let home = std::env::var("HOME").unwrap();
-                let local_share = std::env::var_os("MOONLIGHT_DISCORD_SHARE_LINUX").map(PathBuf::from)
+                let local_share = std::env::var_os("MOONLIGHT_DISCORD_SHARE_LINUX")
+                    .map(PathBuf::from)
                     .unwrap_or(PathBuf::from(home).join(".local/share"));
 
                 let dirs = vec![
@@ -266,7 +267,7 @@ impl Installer {
         std::fs::create_dir(app_dir.join("app"))?;
 
         let json = serde_json::json!({
-          "name": "discord",
+          "name": install.branch.dashed_name(),
           "main": "./injector.js",
           "private": true
         });
