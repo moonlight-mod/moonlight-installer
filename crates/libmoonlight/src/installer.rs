@@ -1,6 +1,9 @@
 use super::types::{Branch, DetectedInstall, GitHubRelease, InstallInfo, MoonlightBranch};
 use super::util::{get_download_dir, get_home_dir};
-use crate::{get_app_dir, get_moonlight_dir, DOWNLOAD_DIR, PATCHED_ASAR};
+use crate::types::{
+    FlatpakFilesystemOverride, FlatpakFilesystemOverridePermission, FlatpakOverrides,
+};
+use crate::{get_app_dir, get_local_share, get_moonlight_dir, DOWNLOAD_DIR, PATCHED_ASAR};
 use std::path::PathBuf;
 
 const USER_AGENT: &str =
@@ -154,6 +157,7 @@ impl Installer {
                             installs.push(DetectedInstall {
                                 branch,
                                 path: most_recent_install.path(),
+                                flatpak_id: None,
                             });
                         }
                     }
@@ -190,6 +194,7 @@ impl Installer {
                         installs.push(DetectedInstall {
                             branch,
                             path: app_dir,
+                            flatpak_id: None,
                         });
                     }
                 }
@@ -198,27 +203,27 @@ impl Installer {
             }
 
             "linux" => {
-                let local_share = std::env::var_os("MOONLIGHT_DISCORD_SHARE_LINUX")
-                    .or_else(|| std::env::var_os("XDG_DATA_HOME"))
-                    .map(PathBuf::from)
-                    .unwrap_or_else(|| get_home_dir().join(".local/share"));
+                let local_share = get_local_share();
 
-                // TODO: special case flatpaks to override fs perms for xdg-config/moonlight-mod
                 let dirs = [
-                    ("Discord", Branch::Stable),
-                    ("DiscordPTB", Branch::PTB),
-                    ("DiscordCanary", Branch::Canary),
-                    ("DiscordDevelopment", Branch::Development),
+                    ("Discord", Branch::Stable, None),
+                    ("DiscordPTB", Branch::PTB, None),
+                    ("DiscordCanary", Branch::Canary, None),
+                    ("DiscordDevelopment", Branch::Development, None),
                     // flatpak user installations
-                    ("flatpak/app/com.discordapp.Discord/current/active/files/discord", Branch::Stable),
-                    ("flatpak/app/com.discordapp.DiscordCanary/current/active/files/discord-canary", Branch::Canary),
+                    ("flatpak/app/com.discordapp.Discord/current/active/files/discord", Branch::Stable, Some("com.discordapp.Discord")),
+                    ("flatpak/app/com.discordapp.DiscordCanary/current/active/files/discord-canary", Branch::Canary, Some("com.discordapp.DiscordCanary")),
                 ];
 
                 let mut installs = vec![];
-                for (dir, branch) in dirs {
+                for (dir, branch, id) in dirs {
                     let path = local_share.join(dir);
                     if path.exists() {
-                        installs.push(DetectedInstall { branch, path });
+                        installs.push(DetectedInstall {
+                            branch,
+                            path,
+                            flatpak_id: id.map(Into::into),
+                        });
                     }
                 }
 
@@ -233,6 +238,72 @@ impl Installer {
     // will just prompt them to unpatch, so I think it's fine
     fn is_install_patched(&self, install: &DetectedInstall) -> crate::Result<bool> {
         Ok(!get_app_dir(&install.path)?.join("app.asar").exists())
+    }
+
+    fn get_flatpak_overrides(&self, id: &str) -> crate::Result<Option<FlatpakOverrides>> {
+        let overrides = get_local_share().join("flatpak").join("overrides");
+
+        std::fs::create_dir_all(&overrides)?;
+
+        let app_overrides = overrides.join(id);
+
+        let file = match std::fs::OpenOptions::new().read(true).open(&app_overrides) {
+            Ok(v) => v,
+            Err(err) => match err.kind() {
+                std::io::ErrorKind::NotFound => return Ok(None),
+                _ => return Err(err.into()),
+            },
+        };
+
+        serde_ini::from_read(file).or(Ok(None))
+    }
+
+    fn ensure_flatpak_overrides(&self, id: &str) -> crate::Result<()> {
+        let overrides = self.get_flatpak_overrides(id)?;
+
+        let has = overrides
+            .as_ref()
+            .and_then(|v| v.context.as_ref())
+            .and_then(|v| v.filesystem.as_ref())
+            .is_some_and(|v| {
+                v.iter().any(|entry| {
+                    entry.path == "xdg-config/moonlight-mod"
+                        && entry.permission == FlatpakFilesystemOverridePermission::ReadWrite
+                })
+            });
+
+        if has {
+            return Ok(());
+        }
+
+        let mut overrides = overrides.unwrap_or_default();
+
+        if overrides.context.is_none() {
+            overrides.context = Some(Default::default());
+        }
+        let context = overrides.context.as_mut().unwrap();
+
+        if context.filesystem.is_none() {
+            context.filesystem = Some(Default::default());
+        }
+        let filesystem = context.filesystem.as_mut().unwrap();
+
+        filesystem.push(FlatpakFilesystemOverride {
+            path: String::from("xdg-config/moonlight-mod"),
+            permission: FlatpakFilesystemOverridePermission::ReadWrite,
+        });
+
+        let app_overrides = get_local_share().join("flatpak").join("overrides").join(id);
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .append(false)
+            .open(&app_overrides)?;
+
+        serde_ini::to_writer(&mut file, &overrides).expect("ini serialization to succeed");
+
+        Ok(())
     }
 
     pub fn patch_install(
@@ -265,6 +336,11 @@ const DOWNLOAD_DIR = {};
             include_str!("injector.js")
         );
         std::fs::write(app_dir.join("app/injector.js"), injector)?;
+
+        if let Some(flatpak_id) = install.flatpak_id.as_deref() {
+            self.ensure_flatpak_overrides(flatpak_id)?;
+        }
+
         Ok(())
     }
 

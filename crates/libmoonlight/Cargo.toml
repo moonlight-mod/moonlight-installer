@@ -16,3 +16,5 @@ serde = { workspace = true }
 clap = { workspace = true }
 thiserror = { workspace = true }
 nix = { workspace = true }
+serde_ini = { workspace = true }
+serde-value = { workspace = true }

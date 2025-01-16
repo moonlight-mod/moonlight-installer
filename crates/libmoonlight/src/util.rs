@@ -62,6 +62,7 @@ pub fn detect_install(exe: &Path) -> Option<InstallInfo> {
         install: DetectedInstall {
             branch: install_type,
             path: folder.to_path_buf(),
+            flatpak_id: None,
         },
         patched: app_dir.join(PATCHED_ASAR).exists(),
         has_config: false,
@@ -94,4 +95,11 @@ pub fn get_home_dir() -> PathBuf {
                 .map(|u| u.dir)
         })
         .expect("$HOME to be set or user to be in /etc/passwd")
+}
+
+pub fn get_local_share() -> PathBuf {
+    std::env::var_os("MOONLIGHT_DISCORD_SHARE_LINUX")
+        .or_else(|| std::env::var_os("XDG_DATA_HOME"))
+        .map(PathBuf::from)
+        .unwrap_or_else(|| get_home_dir().join(".local/share"))
 }
