@@ -1,9 +1,10 @@
-const os = require("os");
-const path = require("path");
-const process = require("process");
+const os = require("node:os");
+const fs = require("node:fs");
+const path = require("node:path");
+const process = require("node:process");
 
 function getInjector(override) {
-  if (override !== null) return override;
+  if (override !== null && fs.existsSync(override)) return override;
 
   // resolve default path
   switch (os.platform()) {
@@ -23,4 +24,4 @@ function getInjector(override) {
 }
 
 const injector = getInjector(MOONLIGHT_INJECTOR);
-require(injector).inject(require("path").resolve(__dirname, `../${PATCHED_ASAR}`));
+require(injector).inject(path.resolve(__dirname, `../${PATCHED_ASAR}`));
