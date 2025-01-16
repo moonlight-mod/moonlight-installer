@@ -1,5 +1,7 @@
 # moonlight-installer
 
+![Screenshot of the moonlight installer on Linux](./assets/screenshot-linux.png)
+
 A desktop application to install [moonlight](https://github.com/moonlight-mod/moonlight).
 
 ## Installation
@@ -11,4 +13,4 @@ Nightly builds on GitHub Actions can be found [here](https://github.com/moonligh
 ## Known issues
 
 - Linux installations are only detected if they are in `~/.local/share`.
-  TEMPORARY FIX: use `MOONLIGHT_DISCORD_SHARE_LINUX` in place of `~/.local/share` and moonlight will scan there.
+  - Temporary fix: use `MOONLIGHT_DISCORD_SHARE_LINUX` in place of `~/.local/share` and moonlight will scan there.
