@@ -8,7 +8,7 @@ function getInjector(override) {
 
   // resolve default path
   switch (os.platform()) {
-    case "windows":
+    case "win32":
       return path.join(process.env.APPDATA, "moonlight-mod", DOWNLOAD_DIR, "injector.js");
     case "darwin":
       return path.join(os.homedir(), "Library", "Application Support", "moonlight-mod", DOWNLOAD_DIR, "injector.js");

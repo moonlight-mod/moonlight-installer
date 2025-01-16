@@ -132,9 +132,9 @@ impl Installer {
                 let appdata = std::env::var("LocalAppData").unwrap();
                 let dirs = [
                     ("Discord", Branch::Stable),
-                    ("Discord PTB", Branch::PTB),
-                    ("Discord Canary", Branch::Canary),
-                    ("Discord Development", Branch::Development),
+                    ("DiscordPTB", Branch::PTB),
+                    ("DiscordCanary", Branch::Canary),
+                    ("DiscordDevelopment", Branch::Development),
                 ];
                 let mut installs = vec![];
 
@@ -308,8 +308,10 @@ impl Installer {
     pub fn patch_install(
         &self,
         install: &DetectedInstall,
-        moonlight_dir: Option<PathBuf>,
+        override_download_dir: Option<PathBuf>,
     ) -> crate::Result<()> {
+        let download_dir = override_download_dir.unwrap_or_else(get_download_dir);
+
         // TODO: flatpak and stuff
         let app_dir = get_app_dir(&install.path)?;
         let asar = app_dir.join("app.asar");
@@ -323,7 +325,7 @@ impl Installer {
         });
         std::fs::write(app_dir.join("app/package.json"), json.to_string())?;
 
-        let moonlight_injector = moonlight_dir.map(|m| m.join("injector.js"));
+        let moonlight_injector = download_dir.join("injector.js");
         let injector = format!(
             r#"const MOONLIGHT_INJECTOR = {};
 const PATCHED_ASAR = {};
