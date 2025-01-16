@@ -20,10 +20,7 @@ pub fn get_moonlight_dir() -> PathBuf {
                     let home = std::env::var("HOME").unwrap();
                     PathBuf::from(home).join("Library/Application Support/moonlight-mod")
                 }
-                "linux" => {
-                    let home = std::env::var("HOME").unwrap();
-                    PathBuf::from(home).join(".config/moonlight-mod")
-                }
+                "linux" => get_dot_config().join("moonlight-mod"),
                 _ => unimplemented!("Unsupported OS"),
             })
         })
@@ -102,4 +99,10 @@ pub fn get_local_share() -> PathBuf {
         .or_else(|| std::env::var_os("XDG_DATA_HOME"))
         .map(PathBuf::from)
         .unwrap_or_else(|| get_home_dir().join(".local/share"))
+}
+
+pub fn get_dot_config() -> PathBuf {
+    std::env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| get_home_dir().join(".config"))
 }
