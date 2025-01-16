@@ -204,7 +204,6 @@ impl Installer {
 
             "linux" => {
                 let local_share = get_local_share();
-
                 let dirs = [
                     ("Discord", Branch::Stable, None),
                     ("DiscordPTB", Branch::PTB, None),
@@ -318,7 +317,7 @@ impl Installer {
         std::fs::create_dir(app_dir.join("app"))?;
 
         let json = serde_json::json!({
-          "name": "discord",
+          "name": install.branch.dashed_name(),
           "main": "./injector.js",
           "private": true
         });

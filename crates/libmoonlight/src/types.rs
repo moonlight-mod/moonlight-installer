@@ -70,13 +70,26 @@ impl Branch {
         get_moonlight_dir().join(format!("{}.json", self.to_string().to_lowercase()))
     }
 
-    pub fn kill_discord(&self) {
-        let name = match self {
+    pub fn name(&self) -> &'static str {
+        match self {
             Self::Stable => "Discord",
             Self::PTB => "DiscordPTB",
             Self::Canary => "DiscordCanary",
             Self::Development => "DiscordDevelopment",
-        };
+        }
+    }
+
+    pub fn dashed_name(&self) -> &'static str {
+        match self {
+            Self::Stable => "discord",
+            Self::PTB => "discord-ptb",
+            Self::Canary => "discord-canary",
+            Self::Development => "discord-development",
+        }
+    }
+
+    pub fn kill_discord(&self) {
+        let name = self.name();
 
         match std::env::consts::OS {
             "windows" => {
