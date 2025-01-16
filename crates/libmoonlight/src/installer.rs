@@ -263,7 +263,7 @@ impl Installer {
         let has = overrides
             .as_ref()
             .and_then(|v| v.context.as_ref())
-            .and_then(|v| v.filesystem.as_ref())
+            .and_then(|v| v.filesystems.as_ref())
             .is_some_and(|v| {
                 v.iter().any(|entry| {
                     entry.path == "xdg-config/moonlight-mod"
@@ -282,10 +282,10 @@ impl Installer {
         }
         let context = overrides.context.as_mut().unwrap();
 
-        if context.filesystem.is_none() {
-            context.filesystem = Some(Default::default());
+        if context.filesystems.is_none() {
+            context.filesystems = Some(Default::default());
         }
-        let filesystem = context.filesystem.as_mut().unwrap();
+        let filesystem = context.filesystems.as_mut().unwrap();
 
         filesystem.push(FlatpakFilesystemOverride {
             path: String::from("xdg-config/moonlight-mod"),

@@ -159,7 +159,7 @@ impl Default for FlatpakOverrides {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FlatpakOverridesContext {
-    pub filesystem: Option<FlatpakArray<FlatpakFilesystemOverride>>,
+    pub filesystems: Option<FlatpakArray<FlatpakFilesystemOverride>>,
     #[serde(flatten)]
     other: serde_value::Value,
 }
@@ -167,7 +167,7 @@ pub struct FlatpakOverridesContext {
 impl Default for FlatpakOverridesContext {
     fn default() -> Self {
         Self {
-            filesystem: Some(Default::default()),
+            filesystems: Some(Default::default()),
             other: serde_value::Value::Map(BTreeMap::new()),
         }
     }
