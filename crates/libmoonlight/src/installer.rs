@@ -217,7 +217,7 @@ impl Installer {
                 let mut installs = vec![];
                 for (dir, branch, id) in dirs {
                     let path = local_share.join(dir);
-                    if path.exists() {
+                    if path.join(branch.name()).exists() {
                         installs.push(DetectedInstall {
                             branch,
                             path,
