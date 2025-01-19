@@ -1,9 +1,9 @@
 use super::types::{Branch, DetectedInstall, GitHubRelease, InstallInfo, MoonlightBranch};
 use super::util::{get_download_dir, get_home_dir};
-use crate::types::{
-    FlatpakFilesystemOverride, FlatpakFilesystemOverridePermission, FlatpakOverrides,
+use crate::{
+    ensure_flatpak_overrides, get_app_dir, get_local_share, get_local_share_workaround,
+    get_moonlight_dir, DOWNLOAD_DIR, PATCHED_ASAR,
 };
-use crate::{get_app_dir, get_local_share, get_moonlight_dir, DOWNLOAD_DIR, PATCHED_ASAR};
 use std::path::PathBuf;
 
 const USER_AGENT: &str =
@@ -203,7 +203,10 @@ impl Installer {
             }
 
             "linux" => {
-                let local_share = get_local_share();
+                // this is a crime but it has to be done...
+                // please merge pr flatpak devs
+                let local_shares = [get_local_share(), get_local_share_workaround()];
+
                 let dirs = [
                     ("Discord", Branch::Stable, None),
                     ("DiscordPTB", Branch::PTB, None),
@@ -216,13 +219,16 @@ impl Installer {
 
                 let mut installs = vec![];
                 for (dir, branch, id) in dirs {
-                    let path = local_share.join(dir);
-                    if path.join(branch.name()).exists() {
-                        installs.push(DetectedInstall {
-                            branch,
-                            path,
-                            flatpak_id: id.map(Into::into),
-                        });
+                    for local_share in &local_shares {
+                        let path = local_share.join(dir);
+                        if path.join(branch.name()).exists() {
+                            installs.push(DetectedInstall {
+                                branch,
+                                path,
+                                flatpak_id: id.map(Into::into),
+                            });
+                            break;
+                        }
                     }
                 }
 
@@ -237,72 +243,6 @@ impl Installer {
     // will just prompt them to unpatch, so I think it's fine
     fn is_install_patched(&self, install: &DetectedInstall) -> crate::Result<bool> {
         Ok(!get_app_dir(&install.path)?.join("app.asar").exists())
-    }
-
-    fn get_flatpak_overrides(&self, id: &str) -> crate::Result<Option<FlatpakOverrides>> {
-        let overrides = get_local_share().join("flatpak").join("overrides");
-
-        std::fs::create_dir_all(&overrides)?;
-
-        let app_overrides = overrides.join(id);
-
-        let file = match std::fs::OpenOptions::new().read(true).open(&app_overrides) {
-            Ok(v) => v,
-            Err(err) => match err.kind() {
-                std::io::ErrorKind::NotFound => return Ok(None),
-                _ => return Err(err.into()),
-            },
-        };
-
-        serde_ini::from_read(file).or(Ok(None))
-    }
-
-    fn ensure_flatpak_overrides(&self, id: &str) -> crate::Result<()> {
-        let overrides = self.get_flatpak_overrides(id)?;
-
-        let has = overrides
-            .as_ref()
-            .and_then(|v| v.context.as_ref())
-            .and_then(|v| v.filesystems.as_ref())
-            .is_some_and(|v| {
-                v.iter().any(|entry| {
-                    entry.path == "xdg-config/moonlight-mod"
-                        && entry.permission == FlatpakFilesystemOverridePermission::ReadWrite
-                })
-            });
-
-        if has {
-            return Ok(());
-        }
-
-        let mut overrides = overrides.unwrap_or_default();
-
-        if overrides.context.is_none() {
-            overrides.context = Some(Default::default());
-        }
-        let context = overrides.context.as_mut().unwrap();
-
-        if context.filesystems.is_none() {
-            context.filesystems = Some(Default::default());
-        }
-        let filesystem = context.filesystems.as_mut().unwrap();
-
-        filesystem.push(FlatpakFilesystemOverride {
-            path: String::from("xdg-config/moonlight-mod"),
-            permission: FlatpakFilesystemOverridePermission::ReadWrite,
-        });
-
-        let app_overrides = get_local_share().join("flatpak").join("overrides").join(id);
-        let mut file = std::fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .append(false)
-            .open(&app_overrides)?;
-
-        serde_ini::to_writer(&mut file, &overrides).expect("ini serialization to succeed");
-
-        Ok(())
     }
 
     pub fn patch_install(
@@ -339,7 +279,7 @@ const DOWNLOAD_DIR = {};
         std::fs::write(app_dir.join("app/injector.js"), injector)?;
 
         if let Some(flatpak_id) = install.flatpak_id.as_deref() {
-            self.ensure_flatpak_overrides(flatpak_id)?;
+            ensure_flatpak_overrides(flatpak_id)?;
         }
 
         Ok(())
