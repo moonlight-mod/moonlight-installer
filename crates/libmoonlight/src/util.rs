@@ -1,7 +1,10 @@
 #[cfg(unix)]
 use nix::unistd::{Uid, User};
 
-use crate::types::{Branch, DetectedInstall, InstallInfo};
+use crate::types::{
+    Branch, DetectedInstall, FlatpakFilesystemOverride, FlatpakFilesystemOverridePermission,
+    FlatpakOverrides, InstallInfo,
+};
 use std::path::{Path, PathBuf};
 
 pub const DOWNLOAD_DIR: &str = "dist";
@@ -101,8 +104,94 @@ pub fn get_local_share() -> PathBuf {
         .unwrap_or_else(|| get_home_dir().join(".local/share"))
 }
 
+// https://github.com/flatpak/flatpak/pull/6084
+pub fn get_local_share_workaround() -> PathBuf {
+    get_home_dir().join(".local").join("share")
+}
+
+fn get_flatpak_home() -> PathBuf {
+    let a = get_local_share().join("flatpak");
+    if a.exists() {
+        a
+    } else {
+        let b = get_local_share_workaround().join("flatpak");
+        if b.exists() {
+            b
+        } else {
+            a
+        }
+    }
+}
+
 pub fn get_dot_config() -> PathBuf {
     std::env::var_os("XDG_CONFIG_HOME")
         .map(PathBuf::from)
         .unwrap_or_else(|| get_home_dir().join(".config"))
+}
+
+fn get_flatpak_overrides(id: &str) -> crate::Result<Option<FlatpakOverrides>> {
+    let overrides = get_flatpak_home().join("overrides");
+
+    std::fs::create_dir_all(&overrides)?;
+
+    let app_overrides = overrides.join(id);
+
+    let file = match std::fs::OpenOptions::new().read(true).open(&app_overrides) {
+        Ok(v) => v,
+        Err(err) => match err.kind() {
+            std::io::ErrorKind::NotFound => return Ok(None),
+            _ => return Err(err.into()),
+        },
+    };
+
+    serde_ini::from_read(file).or(Ok(None))
+}
+
+pub fn ensure_flatpak_overrides(id: &str) -> crate::Result<()> {
+    let overrides = get_flatpak_overrides(id)?;
+
+    let has = overrides
+        .as_ref()
+        .and_then(|v| v.context.as_ref())
+        .and_then(|v| v.filesystems.as_ref())
+        .is_some_and(|v| {
+            v.iter().any(|entry| {
+                entry.path == "xdg-config/moonlight-mod"
+                    && entry.permission == FlatpakFilesystemOverridePermission::ReadWrite
+            })
+        });
+
+    if has {
+        return Ok(());
+    }
+
+    let mut overrides = overrides.unwrap_or_default();
+
+    if overrides.context.is_none() {
+        overrides.context = Some(Default::default());
+    }
+    let context = overrides.context.as_mut().unwrap();
+
+    if context.filesystems.is_none() {
+        context.filesystems = Some(Default::default());
+    }
+    let filesystem = context.filesystems.as_mut().unwrap();
+
+    filesystem.push(FlatpakFilesystemOverride {
+        path: String::from("xdg-config/moonlight-mod"),
+        permission: FlatpakFilesystemOverridePermission::ReadWrite,
+    });
+
+    // ensured that it exists in get_flatpak_overrides
+    let app_overrides = get_flatpak_home().join("overrides").join(id);
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .append(false)
+        .open(&app_overrides)?;
+
+    serde_ini::to_writer(&mut file, &overrides).expect("ini serialization to succeed");
+
+    Ok(())
 }
