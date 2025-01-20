@@ -1991,7 +1991,7 @@ dependencies = [
 
 [[package]]
 name = "libmoonlight"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "clap",
  "flate2",
@@ -2136,7 +2136,7 @@ dependencies = [
 
 [[package]]
 name = "moonlight-cli"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "clap",
  "clap_complete",
@@ -2149,7 +2149,7 @@ dependencies = [
 
 [[package]]
 name = "moonlight-installer"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "eframe",
  "egui",

@@ -63,6 +63,15 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="0.2.5" date="2025-01-20">
+      <url type="details">https://github.com/moonlight-mod/moonlight-installer/releases/tag/v0.2.5</url>
+      <description>
+        <p>moonlight-installer v0.2.5</p>
+        <ul>
+          <li>Added workaround for Flatpak installs</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.2.4" date="2025-01-18">
       <url type="details">https://github.com/moonlight-mod/moonlight-installer/releases/tag/v0.2.4</url>
       <description>
