@@ -9,9 +9,9 @@
   <icon type="remote">https://raw.githubusercontent.com/moonlight-mod/moonlight-mod.github.io/refs/heads/main/public/favicon.png</icon>
   
   <url type="homepage">https://moonlight-mod.github.io/</url>
-  <url type="bugtracker">https://github.com/moonlight-mod/moonlight/issues</url>
-  <url type="contribute">https://github.com/moonlight-mod/moonlight</url>
-  <url type="vcs-browser">https://github.com/moonlight-mod/moonlight</url>
+  <url type="bugtracker">https://github.com/moonlight-mod/moonlight-installer/issues</url>
+  <url type="contribute">https://github.com/moonlight-mod/moonlight-installer</url>
+  <url type="vcs-browser">https://github.com/moonlight-mod/moonlight-installer</url>
 
   <branding>
     <color type="primary">#fffba6</color>
