@@ -22,7 +22,7 @@
   </developer>
 
   <metadata_license>MIT</metadata_license>
-  <project_license>LGPL-3.0-or-later</project_license>
+  <project_license>MIT</project_license>
   
   <supports>
     <control>pointing</control>
