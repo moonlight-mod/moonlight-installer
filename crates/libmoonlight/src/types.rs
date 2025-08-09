@@ -7,8 +7,11 @@ use std::marker::PhantomData;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-#[derive(Serialize, Deserialize, clap::ValueEnum, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(
+    Serialize, Deserialize, clap::ValueEnum, Debug, Clone, Copy, PartialEq, Eq, Default, Hash,
+)]
 pub enum MoonlightBranch {
+    #[default]
     Stable,
     Nightly,
 }
@@ -23,6 +26,8 @@ impl Display for MoonlightBranch {
 }
 
 impl MoonlightBranch {
+    pub const ALL: [Self; 2] = [Self::Stable, Self::Nightly];
+
     #[must_use]
     pub const fn name(&self) -> &'static str {
         match self {
@@ -44,7 +49,7 @@ impl MoonlightBranch {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum Branch {
     Stable,
@@ -88,25 +93,37 @@ impl Branch {
         }
     }
 
-    pub fn kill_discord(&self) {
+    pub fn kill_discord(&self) -> std::io::Result<()> {
         let name = self.name();
 
-        match std::env::consts::OS {
-            "windows" => {
-                std::process::Command::new("taskkill")
-                    .args(["/F", "/IM", &format!("{name}.exe")])
-                    .output()
-                    .ok();
-            }
+        #[cfg(windows)]
+        {
+            std::process::Command::new("taskkill")
+                .args(["/F", "/IM", &format!("{name}.exe")])
+                .spawn()?
+                .wait()?;
+        }
 
-            "macos" | "linux" => {
-                std::process::Command::new("killall")
-                    .args([name])
-                    .output()
-                    .ok();
-            }
+        #[cfg(unix)]
+        {
+            std::process::Command::new("killall")
+                .args([name])
+                .spawn()?
+                .wait()?;
+        }
 
-            _ => unimplemented!(),
+        #[cfg(not(any(unix, windows)))]
+        {
+            unimplemented!()
+        }
+
+        Ok(())
+    }
+
+    pub fn preferred_moonlight_branch(&self) -> MoonlightBranch {
+        match self {
+            Branch::Stable => MoonlightBranch::Stable,
+            _ => MoonlightBranch::Nightly,
         }
     }
 }

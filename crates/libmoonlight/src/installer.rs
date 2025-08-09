@@ -1,14 +1,19 @@
+use fancy_regex::Regex;
+
 use super::types::{Branch, DetectedInstall, GitHubRelease, InstallInfo, MoonlightBranch};
 use super::util::{get_download_dir, get_home_dir};
 use crate::{
     ensure_flatpak_overrides, get_app_dir, get_local_share, get_local_share_workaround,
     get_moonlight_dir, DOWNLOAD_DIR, PATCHED_ASAR,
 };
+use std::collections::HashMap;
+use std::convert::identity;
 use std::path::PathBuf;
+use std::sync::{LazyLock, Mutex};
 
 const USER_AGENT: &str =
     "moonlight-installer (https://github.com/moonlight-mod/moonlight-installer)";
-const INSTALLED_VERSION_FILE: &str = ".moonlight-installed-version";
+const INSTALLED_VERSIONS_FILE: &str = ".moonlight-installed-version";
 
 const GITHUB_REPO: &str = "moonlight-mod/moonlight";
 const ARTIFACT_NAME: &str = "dist.tar.gz";
@@ -23,6 +28,15 @@ impl Default for Installer {
     }
 }
 
+/// native file locking is notoriously broken
+/// there's no simple cross–platform solution, and even the
+/// platform–specific libraries usually expect you to spinloop. i don't wanna
+/// implement poll–based, cross–platform file locking atm, so this will do.
+/// unless you launch multiple instances of moonlight-installer, which
+/// flatpak (only platform i (slonkazoid) care about), doesn't let you do
+/// anyways, that is…
+static VERSION_FILE_LOCK: Mutex<()> = Mutex::new(());
+
 impl Installer {
     #[must_use]
     pub const fn new() -> Self {
@@ -30,7 +44,7 @@ impl Installer {
     }
 
     pub fn download_moonlight(&self, branch: MoonlightBranch) -> crate::Result<String> {
-        let dir = get_download_dir();
+        let dir = get_download_dir(branch);
 
         if dir.exists() {
             std::fs::remove_dir_all(&dir)?;
@@ -77,15 +91,73 @@ impl Installer {
         }
     }
 
-    pub fn get_downloaded_version(&self) -> crate::Result<Option<String>> {
+    pub fn get_downloaded_versions(&self) -> crate::Result<HashMap<MoonlightBranch, String>> {
         let dir = get_moonlight_dir();
-        let version = std::fs::read_to_string(dir.join(INSTALLED_VERSION_FILE)).ok();
-        Ok(version)
+
+        let _file = VERSION_FILE_LOCK.lock();
+        let serialized_versions = match std::fs::read_to_string(dir.join(INSTALLED_VERSIONS_FILE)) {
+            Ok(v) => v,
+            Err(err) => match err.kind() {
+                std::io::ErrorKind::NotFound => {
+                    // No versions installed
+                    return Ok(Default::default());
+                }
+                _ => return Err(err.into()),
+            },
+        };
+        drop(_file);
+
+        let versions = serde_json::from_str(&serialized_versions)
+            .map(Ok)
+            .unwrap_or_else(|err| {
+                if serialized_versions.is_empty() {
+                    // No versions installed…I guess?
+                    return Ok(Default::default());
+                }
+
+                static SHA1_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+                    Regex::new("^[a-fA-F0-9]+$").unwrap_or_else(|_| unreachable!())
+                });
+
+                // special case: migration from <=v0.2.5
+                if serialized_versions.starts_with('v') {
+                    Ok(HashMap::from([(
+                        MoonlightBranch::Stable,
+                        serialized_versions,
+                    )]))
+                } else if SHA1_REGEX
+                    .is_match(&serialized_versions)
+                    .is_ok_and(identity)
+                {
+                    Ok(HashMap::from([(
+                        MoonlightBranch::Nightly,
+                        serialized_versions,
+                    )]))
+                } else {
+                    Err(err)
+                }
+            })?;
+        Ok(versions)
     }
 
-    pub fn set_downloaded_version(&self, version: &str) -> crate::Result<()> {
+    pub fn set_downloaded_version(
+        &self,
+        branch: MoonlightBranch,
+        version: &str,
+    ) -> crate::Result<()> {
         let dir = get_moonlight_dir();
-        std::fs::write(dir.join(INSTALLED_VERSION_FILE), version)?;
+
+        static LOCK: Mutex<()> = Mutex::new(());
+        let _set = LOCK.lock();
+
+        let mut current = self.get_downloaded_versions()?;
+        current.insert(branch, version.to_owned());
+
+        let serialized = serde_json::to_string_pretty(&current)?;
+
+        let _file = VERSION_FILE_LOCK.lock();
+        std::fs::write(dir.join(INSTALLED_VERSIONS_FILE), serialized)?;
+
         Ok(())
     }
 
@@ -248,10 +320,8 @@ impl Installer {
     pub fn patch_install(
         &self,
         install: &DetectedInstall,
-        override_download_dir: Option<PathBuf>,
+        download_dir: PathBuf,
     ) -> crate::Result<()> {
-        let download_dir = override_download_dir.unwrap_or_else(get_download_dir);
-
         // TODO: flatpak and stuff
         let app_dir = get_app_dir(&install.path)?;
         let asar = app_dir.join("app.asar");
