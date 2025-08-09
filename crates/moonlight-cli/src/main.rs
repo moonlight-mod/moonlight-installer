@@ -51,7 +51,7 @@ fn main() -> eyre::Result<()> {
         Commands::Install { branch } => {
             log::info!("Downloading moonlight branch {}", branch);
             let ver = installer.download_moonlight(branch)?;
-            installer.set_downloaded_version(branch, &ver)?;
+            installer.set_downloaded_version(&ver)?;
             log::info!("Downloaded version {}", ver);
         }
 

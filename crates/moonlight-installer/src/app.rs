@@ -1,15 +1,12 @@
 use crate::config::Config;
-use crate::logic::{app_logic_thread, LogicCommand, LogicResponse, Version};
+use crate::logic::{app_logic_thread, LogicCommand, LogicResponse};
 use libmoonlight::types::{Branch, InstallInfo, MoonlightBranch};
 use libmoonlight::MoonlightError;
-use std::collections::{HashMap, HashSet};
-use std::hash::Hash;
-use std::path::Path;
 use std::time::Duration;
 
 #[derive(Debug, Default)]
 pub struct AppState {
-    downloaded_versions: Option<HashMap<MoonlightBranch, Version>>,
+    downloaded_version: Option<Option<String>>,
     latest_version: Option<String>,
     installs: Option<Vec<InstallInfo>>,
 
@@ -61,23 +58,8 @@ impl App {
         app.tx = Some(main_tx);
         app.rx = Some(main_rx);
 
-        app.send(LogicCommand::GetDownloadedVersions);
-
-        let mut seen = HashSet::new();
-        for branch in app
-            .config
-            .install_selected_branches
-            .values()
-            .copied()
-            .chain([app.config.selected_branch].into_iter())
-        {
-            if !seen.contains(&branch) {
-                app.send(LogicCommand::GetLatestVersion(branch));
-                seen.insert(branch);
-            }
-        }
-        drop(seen);
-
+        app.send(LogicCommand::GetDownloadedVersion);
+        app.send(LogicCommand::GetLatestVersion(app.config.branch));
         app.send(LogicCommand::GetInstalls);
 
         app
@@ -93,9 +75,9 @@ impl App {
                     self.state.installs = Some(installs);
                 }
 
-                LogicResponse::DownloadedVersions(versions) => {
-                    log::info!("Downloaded versions: {:#?}", versions);
-                    self.state.downloaded_versions = Some(versions);
+                LogicResponse::DownloadedVersion(version) => {
+                    log::info!("Downloaded version: {:?}", version);
+                    self.state.downloaded_version = Some(version);
                 }
 
                 LogicResponse::LatestVersion(version) => {
@@ -111,12 +93,11 @@ impl App {
 
                 LogicResponse::UpdateComplete(version) => {
                     log::info!("Update complete: {:?}", version);
-                    if let Ok((branch, version)) = version {
-                        if let Some(map) = self.state.downloaded_versions.as_mut() {
-                            map.insert(branch, version);
-                        }
+                    if let Ok(version) = version {
+                        self.state.downloaded_version = Some(Some(version));
                         self.state.downloading_error = None;
                     } else {
+                        self.state.downloaded_version = Some(None);
                         self.state.downloading_error = version.err();
                     }
                     self.state.downloading = false;
@@ -222,9 +203,11 @@ impl eframe::App for App {
 
                             ui.vertical(|ui| {
                                 egui::ComboBox::from_label("Selected branch")
-                                    .selected_text(self.config.selected_branch.name())
+                                    .selected_text(self.config.branch.name())
                                     .show_ui(ui, |ui| {
-                                        for branch in MoonlightBranch::ALL {
+                                        for &branch in
+                                            &[MoonlightBranch::Stable, MoonlightBranch::Nightly]
+                                        {
                                             let str = format!(
                                                 "{}\n  {}",
                                                 branch.name(),
@@ -232,7 +215,7 @@ impl eframe::App for App {
                                             );
                                             if ui
                                                 .selectable_value(
-                                                    &mut self.config.selected_branch,
+                                                    &mut self.config.branch,
                                                     branch,
                                                     str,
                                                 )
@@ -240,7 +223,7 @@ impl eframe::App for App {
                                             {
                                                 self.state.latest_version = None;
                                                 self.send(LogicCommand::GetLatestVersion(
-                                                    self.config.selected_branch,
+                                                    self.config.branch,
                                                 ));
                                             }
                                         }
@@ -256,11 +239,8 @@ impl eframe::App for App {
                                 });
                                 ui.horizontal(|ui| {
                                     ui.label("Downloaded version:");
-                                    if let Some(map) = &self.state.downloaded_versions {
-                                        ui.label(
-                                            map.get(&self.config.selected_branch)
-                                                .map_or("None", |v| v),
-                                        );
+                                    if let Some(version) = &self.state.downloaded_version {
+                                        ui.label(version.as_deref().unwrap_or("None"));
                                     } else {
                                         ui.spinner();
                                     }
@@ -269,17 +249,16 @@ impl eframe::App for App {
                                 ui.horizontal(|ui| {
                                     let can_download = !self.state.downloading
                                         && self.state.latest_version.is_some()
-                                        && self
-                                            .state
-                                            .downloaded_versions
-                                            .as_ref()
-                                            .and_then(|map| map.get(&self.config.selected_branch))
-                                            .is_none_or(|version| {
-                                                self
-                                                    .state
-                                                    .latest_version
-                                                    .as_deref().is_none_or(|latest| version != latest)
-                                            });
+                                        && (self.state.downloaded_version.is_none()
+                                            || self.state.downloaded_version == Some(None)
+                                            || self.state.downloaded_version
+                                                != Some(Some(
+                                                    self.state
+                                                        .latest_version
+                                                        .as_ref()
+                                                        .unwrap()
+                                                        .clone(),
+                                                )));
 
                                     if ui
                                         .add_enabled(can_download, egui::Button::new("Download"))
@@ -288,7 +267,7 @@ impl eframe::App for App {
                                         self.state.downloading = true;
                                         self.state.downloading_error = None;
                                         self.send(LogicCommand::UpdateMoonlight(
-                                            self.config.selected_branch,
+                                            self.config.branch,
                                         ));
                                     }
 
@@ -319,58 +298,20 @@ impl eframe::App for App {
 
                                 egui::Grid::new("install_grid").show(ui, |ui| {
                                     for install in self.state.installs.as_ref().unwrap() {
-                                        ui.label(format!("{:?}", install.install.branch))
-                                            .on_hover_text(install.install.path.to_string_lossy());
-
-                                        ui.label("w/ moonlight");
-
-                                        let selected_moonlight_branch = self
-                                            .config
-                                            .install_selected_branches
-                                            .entry(install.install.path.clone())
-                                            .or_insert(
-                                                install.install.branch.preferred_moonlight_branch(),
-                                            );
-
-                                        struct ComboBoxId<'a>(&'a Path);
-
-                                        impl<'a> Hash for ComboBoxId<'a> {
-                                            fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-                                                "moonlight_branch".hash(state);
-                                                self.0.hash(state);
-                                            }
-                                        }
-
-                                        egui::ComboBox::new(
-                                            ComboBoxId(install.install.path.as_path()),
-                                            "",
-                                        )
-                                        .selected_text(selected_moonlight_branch.name())
-                                        .show_ui(
-                                            ui,
-                                            |ui| {
-                                                for branch in MoonlightBranch::ALL {
-                                                    ui.selectable_value(
-                                                        selected_moonlight_branch,
-                                                        branch,
-                                                        branch.name(),
-                                                    );
-                                                }
-                                            },
-                                        );
-
                                         let patch_button = egui::Button::new(if install.patched {
                                             "Unpatch"
                                         } else {
                                             "Patch"
                                         });
                                         let can_patch = !self.state.patching
-                                            && self.state.downloaded_versions.as_ref().is_some_and(
-                                                |map| map.contains_key(selected_moonlight_branch),
-                                            );
+                                            && (self.state.downloaded_version.is_some()
+                                                && self.state.downloaded_version != Some(None));
 
                                         let reset_config_button = egui::Button::new("Reset config");
                                         let can_reset_config = install.has_config;
+
+                                        ui.label(format!("{:?}", install.install.branch))
+                                            .on_hover_text(install.install.path.to_string_lossy());
 
                                         let patch_clicked = ui
                                             .add_enabled(can_patch, patch_button)
@@ -381,10 +322,7 @@ impl eframe::App for App {
                                             if install.patched {
                                                 should_unpatch.push(install.install.clone());
                                             } else {
-                                                should_patch.push((
-                                                    install.install.clone(),
-                                                    *selected_moonlight_branch,
-                                                ));
+                                                should_patch.push(install.install.clone());
                                             }
                                         }
 
@@ -400,11 +338,11 @@ impl eframe::App for App {
                                     }
                                 });
 
-                                for (install, branch) in should_patch {
+                                for install in should_patch {
                                     self.state.patching = true;
                                     self.state.patching_branch = Some(install.branch);
                                     self.state.patching_error = None;
-                                    self.send(LogicCommand::PatchInstall { install, branch });
+                                    self.send(LogicCommand::PatchInstall(install));
                                 }
                                 for install in should_unpatch {
                                     self.state.patching = true;

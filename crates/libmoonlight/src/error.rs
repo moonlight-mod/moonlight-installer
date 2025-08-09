@@ -33,9 +33,3 @@ impl From<reqwest::Error> for MoonlightError {
         Self::NetworkFailed(value.to_string())
     }
 }
-
-impl From<serde_json::Error> for MoonlightError {
-    fn from(value: serde_json::Error) -> Self {
-        Self::Unknown(value.to_string())
-    }
-}

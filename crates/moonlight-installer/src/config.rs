@@ -1,11 +1,14 @@
-use std::collections::HashMap;
-use std::path::PathBuf;
-
 use libmoonlight::types::MoonlightBranch;
 
-#[derive(serde::Deserialize, serde::Serialize, Debug, Default)]
-#[serde(default)]
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct Config {
-    pub selected_branch: MoonlightBranch,
-    pub install_selected_branches: HashMap<PathBuf, MoonlightBranch>,
+    pub branch: MoonlightBranch,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            branch: MoonlightBranch::Stable,
+        }
+    }
 }

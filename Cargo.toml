@@ -15,7 +15,6 @@ libmoonlight = { path = "./crates/libmoonlight" }
 reqwest = { version = "0.12.12", features = ["blocking", "json", "rustls-tls"], default-features = false }
 eframe = { version = "0.30.0", features = ["accesskit", "default_fonts", "persistence"] }
 eyre = "0.6.12"
-fancy-regex = "0.16.1"
 flate2 = "1.0.35"
 egui = "0.30.0"
 flume = "0.11.1"
