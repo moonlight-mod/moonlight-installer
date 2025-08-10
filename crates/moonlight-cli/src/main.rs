@@ -1,6 +1,6 @@
 use clap::{CommandFactory, Parser, Subcommand};
-use libmoonlight::detect_install;
 use libmoonlight::types::MoonlightBranch;
+use libmoonlight::{detect_install, get_download_dir};
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
@@ -25,6 +25,8 @@ pub enum Commands {
     /// Patch a Discord install
     Patch {
         exe: PathBuf,
+
+        branch: MoonlightBranch,
 
         /// Path to a custom moonlight build
         #[clap(long, short)]
@@ -55,7 +57,11 @@ fn main() -> eyre::Result<()> {
             log::info!("Downloaded version {}", ver);
         }
 
-        Commands::Patch { exe, moonlight } => {
+        Commands::Patch {
+            exe,
+            branch,
+            moonlight,
+        } => {
             log::info!("Patching install at {:?}", exe);
             let install = detect_install(&exe);
             if let Some(install) = install {
@@ -64,7 +70,11 @@ fn main() -> eyre::Result<()> {
                     installer.unpatch_install(&install.install)?;
                 }
 
-                installer.patch_install(&install.install, moonlight)?;
+                installer.patch_install(
+                    &install.install,
+                    moonlight.unwrap_or_else(|| get_download_dir(branch)),
+                    branch,
+                )?;
                 log::info!("Patched install at {:?}", exe);
             } else {
                 log::error!("Failed to detect install at {:?}", exe);
