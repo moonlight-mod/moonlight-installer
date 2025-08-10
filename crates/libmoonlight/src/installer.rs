@@ -2,6 +2,7 @@ use fancy_regex::Regex;
 
 use super::types::{Branch, DetectedInstall, GitHubRelease, InstallInfo, MoonlightBranch};
 use super::util::{get_download_dir, get_home_dir};
+use crate::types::MoonlightMeta;
 use crate::{
     ensure_flatpak_overrides, get_app_dir, get_local_share, get_local_share_workaround,
     get_moonlight_dir, DOWNLOAD_DIR, PATCHED_ASAR,
@@ -226,9 +227,20 @@ impl Installer {
                         });
 
                         if let Some(most_recent_install) = app_dirs.last() {
+                            let path = most_recent_install.path();
+
+                            let res_dir = get_app_dir(&path)?;
+                            let app_dir = res_dir.join("app");
+
+                            let moonlight_info =
+                                std::fs::read_to_string(app_dir.join("moonlight.json"))
+                                    .ok()
+                                    .and_then(|s| serde_json::from_str(&s).ok());
+
                             installs.push(DetectedInstall {
                                 branch,
-                                path: most_recent_install.path(),
+                                path,
+                                moonlight_info,
                                 flatpak_id: None,
                             });
                         }
@@ -261,11 +273,20 @@ impl Installer {
                             continue;
                         }
 
-                        let app_dir = macos_app_dir.join("Contents/Resources");
+                        let path = macos_app_dir.join("Contents/Resources");
+
+                        let res_dir = get_app_dir(&path)?;
+                        let app_dir = res_dir.join("app");
+
+                        let moonlight_info =
+                            std::fs::read_to_string(app_dir.join("moonlight.json"))
+                                .ok()
+                                .and_then(|s| serde_json::from_str(&s).ok());
 
                         installs.push(DetectedInstall {
                             branch,
-                            path: app_dir,
+                            path,
+                            moonlight_info,
                             flatpak_id: None,
                         });
                     }
@@ -294,9 +315,18 @@ impl Installer {
                     for local_share in &local_shares {
                         let path = local_share.join(dir);
                         if path.join(branch.name()).exists() {
+                            let res_dir = get_app_dir(&path)?;
+                            let app_dir = res_dir.join("app");
+
+                            let moonlight_info =
+                                std::fs::read_to_string(app_dir.join("moonlight.json"))
+                                    .ok()
+                                    .and_then(|s| serde_json::from_str(&s).ok());
+
                             installs.push(DetectedInstall {
                                 branch,
                                 path,
+                                moonlight_info,
                                 flatpak_id: id.map(Into::into),
                             });
                             break;
@@ -321,32 +351,37 @@ impl Installer {
         &self,
         install: &DetectedInstall,
         download_dir: PathBuf,
+        branch: MoonlightBranch,
     ) -> crate::Result<()> {
-        // TODO: flatpak and stuff
-        let app_dir = get_app_dir(&install.path)?;
-        let asar = app_dir.join("app.asar");
+        // TODO: atomic patching
+
+        let res_dir = get_app_dir(&install.path)?;
+        let app_dir = res_dir.join("app");
+        let asar = res_dir.join("app.asar");
         std::fs::rename(&asar, asar.with_file_name(PATCHED_ASAR))?;
-        std::fs::create_dir(app_dir.join("app"))?;
+        std::fs::create_dir(&app_dir)?;
 
         let json = serde_json::json!({
           "name": install.branch.dashed_name(),
           "main": "./injector.js",
           "private": true
         });
-        std::fs::write(app_dir.join("app/package.json"), json.to_string())?;
+        std::fs::write(app_dir.join("package.json"), json.to_string())?;
 
         let moonlight_injector = download_dir.join("injector.js");
-        let injector = format!(
-            r#"const MOONLIGHT_INJECTOR = {};
-const PATCHED_ASAR = {};
-const DOWNLOAD_DIR = {};
-{}"#,
-            serde_json::to_string(&moonlight_injector).unwrap(),
-            serde_json::to_string(PATCHED_ASAR).unwrap(),
-            serde_json::to_string(DOWNLOAD_DIR).unwrap(),
-            include_str!("injector.js")
-        );
-        std::fs::write(app_dir.join("app/injector.js"), injector)?;
+        let moonlight_info = MoonlightMeta {
+            moonlight_injector,
+            patched_asar: PATCHED_ASAR.to_owned(),
+            download_dir: vec![DOWNLOAD_DIR.to_owned(), branch.to_string()],
+            branch,
+        };
+        std::fs::write(
+            app_dir.join("moonlight.json"),
+            serde_json::to_string_pretty(&moonlight_info).unwrap_or_else(|_| {
+                unreachable!("MoonlightMeta's Serialize implementation should not fail")
+            }),
+        )?;
+        std::fs::write(app_dir.join("injector.js"), include_str!("injector.js"))?;
 
         if let Some(flatpak_id) = install.flatpak_id.as_deref() {
             ensure_flatpak_overrides(flatpak_id)?;

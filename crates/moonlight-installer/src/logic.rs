@@ -62,7 +62,7 @@ pub fn app_logic_thread(
 
             LogicCommand::PatchInstall { branch, install } => {
                 let resp = installer
-                    .patch_install(&install, get_download_dir(branch))
+                    .patch_install(&install, get_download_dir(branch), branch)
                     .map(|()| install.path);
                 tx.send(LogicResponse::PatchComplete(resp))?;
             }

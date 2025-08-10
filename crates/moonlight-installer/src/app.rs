@@ -275,10 +275,10 @@ impl eframe::App for App {
                                             .as_ref()
                                             .and_then(|map| map.get(&self.config.selected_branch))
                                             .is_none_or(|version| {
-                                                self
-                                                    .state
+                                                self.state
                                                     .latest_version
-                                                    .as_deref().is_none_or(|latest| version != latest)
+                                                    .as_deref()
+                                                    .is_none_or(|latest| version != latest)
                                             });
 
                                     if ui
@@ -329,7 +329,17 @@ impl eframe::App for App {
                                             .install_selected_branches
                                             .entry(install.install.path.clone())
                                             .or_insert(
-                                                install.install.branch.preferred_moonlight_branch(),
+                                                install
+                                                    .install
+                                                    .moonlight_info
+                                                    .as_ref()
+                                                    .map(|m| m.branch)
+                                                    .unwrap_or(
+                                                        install
+                                                            .install
+                                                            .branch
+                                                            .preferred_moonlight_branch(),
+                                                    ),
                                             );
 
                                         struct ComboBoxId<'a>(&'a Path);
@@ -364,16 +374,29 @@ impl eframe::App for App {
                                         } else {
                                             "Patch"
                                         });
-                                        let can_patch = !self.state.patching
-                                            && self.state.downloaded_versions.as_ref().is_some_and(
-                                                |map| map.contains_key(selected_moonlight_branch),
-                                            );
+                                        let can_click_patch = !self.state.patching
+                                            && (!install.patched
+                                                && self
+                                                    .state
+                                                    .downloaded_versions
+                                                    .as_ref()
+                                                    .is_some_and(|map| {
+                                                        map.contains_key(selected_moonlight_branch)
+                                                    }))
+                                            || (install.patched
+                                                && install
+                                                    .install
+                                                    .moonlight_info
+                                                    .as_ref()
+                                                    .is_none_or(|m| {
+                                                        m.branch == *selected_moonlight_branch
+                                                    }));
 
                                         let reset_config_button = egui::Button::new("Reset config");
                                         let can_reset_config = install.has_config;
 
                                         let patch_clicked = ui
-                                            .add_enabled(can_patch, patch_button)
+                                            .add_enabled(can_click_patch, patch_button)
                                             .on_disabled_hover_text(PATCH_TOOLIP)
                                             .clicked();
 
@@ -405,12 +428,14 @@ impl eframe::App for App {
                                     self.state.patching_branch = Some(install.branch);
                                     self.state.patching_error = None;
                                     self.send(LogicCommand::PatchInstall { install, branch });
+                                    self.send(LogicCommand::GetInstalls);
                                 }
                                 for install in should_unpatch {
                                     self.state.patching = true;
                                     self.state.patching_branch = Some(install.branch);
                                     self.state.patching_error = None;
                                     self.send(LogicCommand::UnpatchInstall(install));
+                                    self.send(LogicCommand::GetInstalls);
                                 }
                                 for branch in should_reset_config {
                                     self.send(LogicCommand::ResetConfig(branch));

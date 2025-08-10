@@ -56,15 +56,21 @@ pub fn detect_install_type(exe: &Path) -> Option<Branch> {
 pub fn detect_install(exe: &Path) -> Option<InstallInfo> {
     let folder = exe.parent()?;
     let install_type = detect_install_type(exe)?;
-    let app_dir = get_app_dir(folder).ok()?;
+    let res_dir = get_app_dir(folder).ok()?;
+    let app_dir = res_dir.join("app");
+
+    let moonlight_info = std::fs::read_to_string(app_dir.join("moonlight.json"))
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok());
 
     Some(InstallInfo {
         install: DetectedInstall {
             branch: install_type,
             path: folder.to_path_buf(),
+            moonlight_info,
             flatpak_id: None,
         },
-        patched: app_dir.join(PATCHED_ASAR).exists(),
+        patched: res_dir.join(PATCHED_ASAR).exists(),
         has_config: false,
     })
 }

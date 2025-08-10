@@ -132,7 +132,17 @@ impl Branch {
 pub struct DetectedInstall {
     pub branch: Branch,
     pub path: PathBuf,
+    pub moonlight_info: Option<MoonlightMeta>,
     pub flatpak_id: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub struct MoonlightMeta {
+    pub moonlight_injector: PathBuf,
+    pub patched_asar: String,
+    pub download_dir: Vec<String>,
+    pub branch: MoonlightBranch,
 }
 
 // Just DetectedInstall but tracking patched for the UI
