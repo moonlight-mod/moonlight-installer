@@ -73,7 +73,7 @@ pub fn app_logic_thread(
             }
 
             LogicCommand::KillDiscord(branch) => {
-                let _ = branch.kill_discord();
+                branch.kill_discord();
             }
 
             LogicCommand::ResetConfig(branch) => {

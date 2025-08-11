@@ -3,7 +3,7 @@ use super::util::{get_download_dir, get_home_dir};
 use crate::types::MoonlightMeta;
 use crate::{
     ensure_flatpak_overrides, get_app_dir, get_local_share, get_local_share_workaround,
-    get_moonlight_dir, DOWNLOAD_DIR, PATCHED_ASAR,
+    get_moonlight_dir, PATCHED_ASAR,
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -85,7 +85,7 @@ impl Installer {
         let legacy_file = dir.join(LEGACY_INSTALLED_VERSION_FILE);
         let file = dir.join(INSTALLED_VERSIONS_FILE);
 
-        if dbg!(std::fs::exists(&legacy_file)?) {
+        if std::fs::exists(&legacy_file)? {
             // special case: migration from <=v0.2.5
             let serialized_version = std::fs::read_to_string(&legacy_file)?;
 
@@ -352,7 +352,6 @@ impl Installer {
         let moonlight_info = MoonlightMeta {
             moonlight_injector,
             patched_asar: PATCHED_ASAR.to_owned(),
-            download_dir: vec![DOWNLOAD_DIR.to_owned(), branch.to_string()],
             branch,
         };
         std::fs::write(

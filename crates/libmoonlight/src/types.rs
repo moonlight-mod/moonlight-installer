@@ -136,7 +136,6 @@ pub struct DetectedInstall {
 pub struct MoonlightMeta {
     pub moonlight_injector: PathBuf,
     pub patched_asar: String,
-    pub download_dir: Vec<String>,
     pub branch: MoonlightBranch,
 }
 
