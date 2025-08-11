@@ -93,31 +93,26 @@ impl Branch {
         }
     }
 
-    pub fn kill_discord(&self) -> std::io::Result<()> {
+    pub fn kill_discord(&self) {
         let name = self.name();
 
-        #[cfg(windows)]
-        {
-            std::process::Command::new("taskkill")
-                .args(["/F", "/IM", &format!("{name}.exe")])
-                .spawn()?
-                .wait()?;
-        }
+        match std::env::consts::OS {
+            "windows" => {
+                std::process::Command::new("taskkill")
+                    .args(["/F", "/IM", &format!("{name}.exe")])
+                    .output()
+                    .ok();
+            }
 
-        #[cfg(unix)]
-        {
-            std::process::Command::new("killall")
-                .args([name])
-                .spawn()?
-                .wait()?;
-        }
+            "macos" | "linux" => {
+                std::process::Command::new("killall")
+                    .args([name])
+                    .output()
+                    .ok();
+            }
 
-        #[cfg(not(any(unix, windows)))]
-        {
-            unimplemented!()
+            _ => unimplemented!(),
         }
-
-        Ok(())
     }
 
     pub fn preferred_moonlight_branch(&self) -> MoonlightBranch {
