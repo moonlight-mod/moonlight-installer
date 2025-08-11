@@ -88,26 +88,31 @@ impl Branch {
         }
     }
 
-    pub fn kill_discord(&self) {
+    pub fn kill_discord(&self) -> std::io::Result<()> {
         let name = self.name();
 
-        match std::env::consts::OS {
-            "windows" => {
-                std::process::Command::new("taskkill")
-                    .args(["/F", "/IM", &format!("{name}.exe")])
-                    .output()
-                    .ok();
-            }
-
-            "macos" | "linux" => {
-                std::process::Command::new("killall")
-                    .args([name])
-                    .output()
-                    .ok();
-            }
-
-            _ => unimplemented!(),
+        #[cfg(windows)]
+        {
+            std::process::Command::new("taskkill")
+                .args(["/F", "/IM", &format!("{name}.exe")])
+                .spawn()?
+                .wait()?;
         }
+
+        #[cfg(unix)]
+        {
+            std::process::Command::new("killall")
+                .args([name])
+                .spawn()?
+                .wait()?;
+        }
+
+        #[cfg(not(any(unix, windows)))]
+        {
+            unimplemented!()
+        }
+
+        Ok(())
     }
 }
 
