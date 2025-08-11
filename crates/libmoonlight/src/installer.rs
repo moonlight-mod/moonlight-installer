@@ -1,5 +1,3 @@
-use fancy_regex::Regex;
-
 use super::types::{Branch, DetectedInstall, GitHubRelease, InstallInfo, MoonlightBranch};
 use super::util::{get_download_dir, get_home_dir};
 use crate::types::MoonlightMeta;
@@ -8,13 +6,12 @@ use crate::{
     get_moonlight_dir, DOWNLOAD_DIR, PATCHED_ASAR,
 };
 use std::collections::HashMap;
-use std::convert::identity;
 use std::path::PathBuf;
-use std::sync::{LazyLock, Mutex};
 
 const USER_AGENT: &str =
     "moonlight-installer (https://github.com/moonlight-mod/moonlight-installer)";
-const INSTALLED_VERSIONS_FILE: &str = ".moonlight-installed-version";
+const LEGACY_INSTALLED_VERSION_FILE: &str = ".moonlight-installed-version";
+const INSTALLED_VERSIONS_FILE: &str = "moonlight-installed-versions.json";
 
 const GITHUB_REPO: &str = "moonlight-mod/moonlight";
 const ARTIFACT_NAME: &str = "dist.tar.gz";
@@ -28,15 +25,6 @@ impl Default for Installer {
         Self::new()
     }
 }
-
-/// native file locking is notoriously broken
-/// there's no simple cross–platform solution, and even the
-/// platform–specific libraries usually expect you to spinloop. i don't wanna
-/// implement poll–based, cross–platform file locking atm, so this will do.
-/// unless you launch multiple instances of moonlight-installer, which
-/// flatpak (only platform i (slonkazoid) care about), doesn't let you do
-/// anyways, that is…
-static VERSION_FILE_LOCK: Mutex<()> = Mutex::new(());
 
 impl Installer {
     #[must_use]
@@ -94,9 +82,35 @@ impl Installer {
 
     pub fn get_downloaded_versions(&self) -> crate::Result<HashMap<MoonlightBranch, String>> {
         let dir = get_moonlight_dir();
+        let legacy_file = dir.join(LEGACY_INSTALLED_VERSION_FILE);
+        let file = dir.join(INSTALLED_VERSIONS_FILE);
 
-        let _file = VERSION_FILE_LOCK.lock();
-        let serialized_versions = match std::fs::read_to_string(dir.join(INSTALLED_VERSIONS_FILE)) {
+        if dbg!(std::fs::exists(&legacy_file)?) {
+            // special case: migration from <=v0.2.5
+            let serialized_version = std::fs::read_to_string(&legacy_file)?;
+
+            let installed_version = if serialized_version.is_empty() {
+                // No versions installed…I guess?
+                None
+            } else if serialized_version.starts_with('v') {
+                Some((MoonlightBranch::Stable, serialized_version))
+            } else {
+                Some((MoonlightBranch::Nightly, serialized_version))
+            };
+
+            let versions = installed_version
+                .map(|entry| HashMap::from([entry]))
+                .unwrap_or_default();
+
+            let serialized = serde_json::to_string_pretty(&versions)?;
+
+            std::fs::write(&file, serialized)?;
+            std::fs::remove_file(&legacy_file)?;
+
+            return Ok(versions);
+        }
+
+        let serialized_versions = match std::fs::read_to_string(&file) {
             Ok(v) => v,
             Err(err) => match err.kind() {
                 std::io::ErrorKind::NotFound => {
@@ -106,38 +120,8 @@ impl Installer {
                 _ => return Err(err.into()),
             },
         };
-        drop(_file);
 
-        let versions = serde_json::from_str(&serialized_versions)
-            .map(Ok)
-            .unwrap_or_else(|err| {
-                if serialized_versions.is_empty() {
-                    // No versions installed…I guess?
-                    return Ok(Default::default());
-                }
-
-                static SHA1_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-                    Regex::new("^[a-fA-F0-9]+$").unwrap_or_else(|_| unreachable!())
-                });
-
-                // special case: migration from <=v0.2.5
-                if serialized_versions.starts_with('v') {
-                    Ok(HashMap::from([(
-                        MoonlightBranch::Stable,
-                        serialized_versions,
-                    )]))
-                } else if SHA1_REGEX
-                    .is_match(&serialized_versions)
-                    .is_ok_and(identity)
-                {
-                    Ok(HashMap::from([(
-                        MoonlightBranch::Nightly,
-                        serialized_versions,
-                    )]))
-                } else {
-                    Err(err)
-                }
-            })?;
+        let versions = serde_json::from_str(&serialized_versions)?;
         Ok(versions)
     }
 
@@ -148,15 +132,11 @@ impl Installer {
     ) -> crate::Result<()> {
         let dir = get_moonlight_dir();
 
-        static LOCK: Mutex<()> = Mutex::new(());
-        let _set = LOCK.lock();
-
         let mut current = self.get_downloaded_versions()?;
         current.insert(branch, version.to_owned());
 
         let serialized = serde_json::to_string_pretty(&current)?;
 
-        let _file = VERSION_FILE_LOCK.lock();
         std::fs::write(dir.join(INSTALLED_VERSIONS_FILE), serialized)?;
 
         Ok(())
@@ -377,9 +357,8 @@ impl Installer {
         };
         std::fs::write(
             app_dir.join("moonlight.json"),
-            serde_json::to_string_pretty(&moonlight_info).unwrap_or_else(|_| {
-                unreachable!("MoonlightMeta's Serialize implementation should not fail")
-            }),
+            serde_json::to_string_pretty(&moonlight_info)
+                .expect("MoonlightMeta's Serialize implementation should not fail"),
         )?;
         std::fs::write(app_dir.join("injector.js"), include_str!("injector.js"))?;
 

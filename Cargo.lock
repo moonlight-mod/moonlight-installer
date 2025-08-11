@@ -1227,17 +1227,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fancy-regex"
-version = "0.16.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf04c5ec15464ace8355a7b440a33aece288993475556d461154d7a62ad9947c"
-dependencies = [
- "bit-set",
- "regex-automata",
- "regex-syntax",
-]
-
-[[package]]
 name = "fastrand"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2005,7 +1994,6 @@ name = "libmoonlight"
 version = "0.2.5"
 dependencies = [
  "clap",
- "fancy-regex",
  "flate2",
  "nix",
  "reqwest",
