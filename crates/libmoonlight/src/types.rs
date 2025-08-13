@@ -1,7 +1,7 @@
 use crate::get_moonlight_dir;
 use serde::de::Visitor;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::Display;
 use std::marker::PhantomData;
 use std::path::PathBuf;
@@ -159,6 +159,15 @@ pub struct GitHubRelease {
     pub name: String,
     pub assets: Vec<GitHubReleaseAsset>,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DownloadedBranchInfo {
+    pub version: String,
+    /// MUST be relative to the moonlight directory (~/.config/moonlight-mod), or an absolute path
+    pub path: PathBuf,
+}
+
+pub type DownloadedMap = HashMap<MoonlightBranch, DownloadedBranchInfo>;
 
 // we only care about filesystem so
 #[derive(Serialize, Deserialize, Debug)]

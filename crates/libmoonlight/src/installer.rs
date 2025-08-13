@@ -1,12 +1,12 @@
 use super::types::{Branch, DetectedInstall, GitHubRelease, InstallInfo, MoonlightBranch};
 use super::util::{get_download_dir, get_home_dir};
-use crate::types::MoonlightMeta;
+use crate::types::{DownloadedBranchInfo, DownloadedMap, MoonlightMeta};
 use crate::{
     ensure_flatpak_overrides, get_app_dir, get_local_share, get_local_share_workaround,
     get_moonlight_dir, PATCHED_ASAR,
 };
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 const USER_AGENT: &str =
     "moonlight-installer (https://github.com/moonlight-mod/moonlight-installer)";
@@ -32,7 +32,10 @@ impl Installer {
         Self {}
     }
 
-    pub fn download_moonlight(&self, branch: MoonlightBranch) -> crate::Result<String> {
+    pub fn download_moonlight(
+        &self,
+        branch: MoonlightBranch,
+    ) -> crate::Result<DownloadedBranchInfo> {
         let dir = get_download_dir(branch);
 
         if dir.exists() {
@@ -41,13 +44,17 @@ impl Installer {
 
         std::fs::create_dir_all(&dir)?;
 
-        Ok(match branch {
-            MoonlightBranch::Stable => self.download_stable(dir)?,
-            MoonlightBranch::Nightly => self.download_nightly(dir)?,
-        })
+        let version = match branch {
+            MoonlightBranch::Stable => self.download_stable(&dir)?,
+            MoonlightBranch::Nightly => self.download_nightly(&dir)?,
+        };
+
+        let path = pathdiff::diff_paths(&dir, get_moonlight_dir()).unwrap_or(dir);
+
+        Ok(DownloadedBranchInfo { version, path })
     }
 
-    fn download_stable(&self, dir: PathBuf) -> crate::Result<String> {
+    fn download_stable(&self, dir: impl AsRef<Path>) -> crate::Result<String> {
         let release = self.get_stable_release()?;
         let asset = release
             .assets
@@ -65,7 +72,7 @@ impl Installer {
         Ok(release.name)
     }
 
-    fn download_nightly(&self, dir: PathBuf) -> crate::Result<String> {
+    fn download_nightly(&self, dir: impl AsRef<Path>) -> crate::Result<String> {
         let version = self.get_nightly_version()?;
         let resp = reqwest::blocking::get(NIGHTLY_DIST_URL)?;
         let mut archive = tar::Archive::new(flate2::read::GzDecoder::new(resp));
@@ -80,7 +87,7 @@ impl Installer {
         }
     }
 
-    pub fn get_downloaded_versions(&self) -> crate::Result<HashMap<MoonlightBranch, String>> {
+    pub fn get_downloaded_versions(&self) -> crate::Result<DownloadedMap> {
         let dir = get_moonlight_dir();
         let legacy_file = dir.join(LEGACY_INSTALLED_VERSION_FILE);
         let file = dir.join(INSTALLED_VERSIONS_FILE);
@@ -98,9 +105,20 @@ impl Installer {
                 Some((MoonlightBranch::Nightly, serialized_version))
             };
 
-            let versions = installed_version
-                .map(|entry| HashMap::from([entry]))
-                .unwrap_or_default();
+            let versions = if get_moonlight_dir().join("dist").exists() {
+                installed_version.map(|(branch, version)| {
+                    HashMap::from([(
+                        branch,
+                        DownloadedBranchInfo {
+                            version,
+                            path: PathBuf::from("dist"),
+                        },
+                    )])
+                })
+            } else {
+                None
+            }
+            .unwrap_or_default();
 
             let serialized = serde_json::to_string_pretty(&versions)?;
 
@@ -121,19 +139,39 @@ impl Installer {
             },
         };
 
-        let versions = serde_json::from_str(&serialized_versions)?;
+        let mut versions: DownloadedMap = serde_json::from_str(&serialized_versions)?;
+
+        // filter out missing versions
+        for key in MoonlightBranch::ALL {
+            let Some(info) = versions.get(&key) else {
+                continue;
+            };
+
+            let path = if info.path.is_relative() {
+                &get_moonlight_dir().join(&info.path)
+            } else {
+                &info.path
+            };
+
+            if !path.exists() {
+                versions.remove(&key);
+            }
+        }
+
         Ok(versions)
     }
 
     pub fn set_downloaded_version(
         &self,
         branch: MoonlightBranch,
-        version: &str,
+        version: String,
+        path: PathBuf,
     ) -> crate::Result<()> {
         let dir = get_moonlight_dir();
 
         let mut current = self.get_downloaded_versions()?;
-        current.insert(branch, version.to_owned());
+        let info = DownloadedBranchInfo { version, path };
+        current.insert(branch, info);
 
         let serialized = serde_json::to_string_pretty(&current)?;
 

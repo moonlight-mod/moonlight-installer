@@ -1,6 +1,8 @@
 use crate::config::Config;
 use crate::logic::{app_logic_thread, LogicCommand, LogicResponse, Version};
-use libmoonlight::types::{Branch, InstallInfo, MoonlightBranch};
+use libmoonlight::types::{
+    Branch, DownloadedBranchInfo, DownloadedMap, InstallInfo, MoonlightBranch,
+};
 use libmoonlight::MoonlightError;
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
@@ -9,8 +11,8 @@ use std::time::Duration;
 
 #[derive(Debug, Default)]
 pub struct AppState {
-    downloaded_versions: Option<HashMap<MoonlightBranch, Version>>,
-    latest_version: Option<String>,
+    downloaded_versions: Option<DownloadedMap>,
+    latest_version: HashMap<MoonlightBranch, Version>,
     installs: Option<Vec<InstallInfo>>,
 
     downloading: bool,
@@ -100,24 +102,23 @@ impl App {
 
                 LogicResponse::LatestVersion(version) => {
                     log::info!("Latest version: {:?}", version);
-                    if let Ok(version) = version {
-                        self.state.latest_version = Some(version);
+                    if let Ok((branch, version)) = version {
+                        self.state.latest_version.insert(branch, version);
                         self.state.downloading_error = None;
                     } else {
-                        self.state.latest_version = None;
                         self.state.downloading_error = version.err();
                     }
                 }
 
-                LogicResponse::UpdateComplete(version) => {
-                    log::info!("Update complete: {:?}", version);
-                    if let Ok((branch, version)) = version {
+                LogicResponse::UpdateComplete(info) => {
+                    log::info!("Update complete: {:?}", info);
+                    if let Ok((branch, info)) = info {
                         if let Some(map) = self.state.downloaded_versions.as_mut() {
-                            map.insert(branch, version);
+                            map.insert(branch, info);
                         }
                         self.state.downloading_error = None;
                     } else {
-                        self.state.downloading_error = version.err();
+                        self.state.downloading_error = info.err();
                     }
                     self.state.downloading = false;
                 }
@@ -238,17 +239,18 @@ impl eframe::App for App {
                                                 )
                                                 .changed()
                                             {
-                                                self.state.latest_version = None;
-                                                self.send(LogicCommand::GetLatestVersion(
-                                                    self.config.selected_branch,
-                                                ));
+                                                let branch = self.config.selected_branch;
+                                                self.state.latest_version.remove(&branch);
+                                                self.send(LogicCommand::GetLatestVersion(branch));
                                             }
                                         }
                                     });
 
                                 ui.horizontal(|ui| {
                                     ui.label("Latest version:");
-                                    if let Some(version) = &self.state.latest_version {
+                                    if let Some(version) =
+                                        self.state.latest_version.get(&self.config.selected_branch)
+                                    {
                                         ui.label(version);
                                     } else {
                                         ui.spinner();
@@ -259,7 +261,7 @@ impl eframe::App for App {
                                     if let Some(map) = &self.state.downloaded_versions {
                                         ui.label(
                                             map.get(&self.config.selected_branch)
-                                                .map_or("None", |v| v),
+                                                .map_or("None", |v| &v.version),
                                         );
                                     } else {
                                         ui.spinner();
@@ -267,19 +269,21 @@ impl eframe::App for App {
                                 });
 
                                 ui.horizontal(|ui| {
+                                    let latest_version =
+                                        self.state.latest_version.get(&self.config.selected_branch);
                                     let can_download = !self.state.downloading
-                                        && self.state.latest_version.is_some()
+                                        && latest_version.is_some()
                                         && self
                                             .state
                                             .downloaded_versions
                                             .as_ref()
                                             .and_then(|map| map.get(&self.config.selected_branch))
-                                            .is_none_or(|version| {
-                                                self.state
-                                                    .latest_version
-                                                    .as_deref()
-                                                    .is_none_or(|latest| version != latest)
-                                            });
+                                            .is_none_or(
+                                                |DownloadedBranchInfo { version, .. }| {
+                                                    latest_version
+                                                        .is_some_and(|latest| version != latest)
+                                                },
+                                            );
 
                                     if ui
                                         .add_enabled(can_download, egui::Button::new("Download"))

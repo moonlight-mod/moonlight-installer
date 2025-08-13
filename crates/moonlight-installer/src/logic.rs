@@ -1,6 +1,7 @@
-use libmoonlight::types::{Branch, DetectedInstall, InstallInfo, MoonlightBranch};
+use libmoonlight::types::{
+    Branch, DetectedInstall, DownloadedBranchInfo, DownloadedMap, InstallInfo, MoonlightBranch,
+};
 use libmoonlight::{get_download_dir, Installer};
-use std::collections::HashMap;
 use std::path::PathBuf;
 
 pub type Version = String;
@@ -21,9 +22,9 @@ pub enum LogicCommand {
 
 pub enum LogicResponse {
     Installs(Vec<InstallInfo>),
-    DownloadedVersions(HashMap<MoonlightBranch, Version>),
-    LatestVersion(libmoonlight::Result<Version>),
-    UpdateComplete(libmoonlight::Result<(MoonlightBranch, Version)>),
+    DownloadedVersions(DownloadedMap),
+    LatestVersion(libmoonlight::Result<(MoonlightBranch, Version)>),
+    UpdateComplete(libmoonlight::Result<(MoonlightBranch, DownloadedBranchInfo)>),
     PatchComplete(libmoonlight::Result<PathBuf>),
     UnpatchComplete(libmoonlight::Result<PathBuf>),
 }
@@ -38,7 +39,9 @@ pub fn app_logic_thread(
         match rx.recv()? {
             LogicCommand::GetLatestVersion(branch) => {
                 let latest_version = installer.get_latest_moonlight_version(branch);
-                tx.send(LogicResponse::LatestVersion(latest_version))?;
+                tx.send(LogicResponse::LatestVersion(
+                    latest_version.map(|v| (branch, v)),
+                ))?;
             }
 
             LogicCommand::GetDownloadedVersions => {
@@ -54,10 +57,14 @@ pub fn app_logic_thread(
 
             LogicCommand::UpdateMoonlight(branch) => {
                 let result = installer.download_moonlight(branch);
-                if let Ok(ref version) = result {
-                    installer.set_downloaded_version(branch, version).ok();
+                if let Ok(DownloadedBranchInfo { version, path }) = &result {
+                    installer
+                        .set_downloaded_version(branch, version.to_owned(), path.to_owned())
+                        .ok();
                 }
-                tx.send(LogicResponse::UpdateComplete(result.map(|v| (branch, v))))?;
+                tx.send(LogicResponse::UpdateComplete(
+                    result.map(|info| (branch, info)),
+                ))?;
             }
 
             LogicCommand::PatchInstall { branch, install } => {
