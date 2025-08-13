@@ -1,5 +1,5 @@
 use clap::{CommandFactory, Parser, Subcommand};
-use libmoonlight::types::MoonlightBranch;
+use libmoonlight::types::{DownloadedBranchInfo, MoonlightBranch};
 use libmoonlight::{detect_install, get_download_dir};
 use std::path::PathBuf;
 
@@ -52,9 +52,9 @@ fn main() -> eyre::Result<()> {
     match cli.command {
         Commands::Install { branch } => {
             log::info!("Downloading moonlight branch {}", branch);
-            let ver = installer.download_moonlight(branch)?;
-            installer.set_downloaded_version(branch, &ver)?;
-            log::info!("Downloaded version {}", ver);
+            let DownloadedBranchInfo { version, path } = installer.download_moonlight(branch)?;
+            log::info!("Downloaded version {version}");
+            installer.set_downloaded_version(branch, version, path)?;
         }
 
         Commands::Patch {
