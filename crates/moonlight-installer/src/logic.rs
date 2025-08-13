@@ -1,13 +1,20 @@
-use libmoonlight::types::{Branch, DetectedInstall, InstallInfo, MoonlightBranch};
-use libmoonlight::Installer;
+use libmoonlight::types::{
+    Branch, DetectedInstall, DownloadedBranchInfo, DownloadedMap, InstallInfo, MoonlightBranch,
+};
+use libmoonlight::{get_download_dir, Installer};
 use std::path::PathBuf;
+
+pub type Version = String;
 
 pub enum LogicCommand {
     GetInstalls,
-    GetDownloadedVersion,
+    GetDownloadedVersions,
     GetLatestVersion(MoonlightBranch),
     UpdateMoonlight(MoonlightBranch),
-    PatchInstall(DetectedInstall),
+    PatchInstall {
+        branch: MoonlightBranch,
+        install: DetectedInstall,
+    },
     UnpatchInstall(DetectedInstall),
     KillDiscord(Branch),
     ResetConfig(Branch),
@@ -15,9 +22,9 @@ pub enum LogicCommand {
 
 pub enum LogicResponse {
     Installs(Vec<InstallInfo>),
-    DownloadedVersion(Option<String>),
-    LatestVersion(libmoonlight::Result<String>),
-    UpdateComplete(libmoonlight::Result<String>),
+    DownloadedVersions(DownloadedMap),
+    LatestVersion(libmoonlight::Result<(MoonlightBranch, Version)>),
+    UpdateComplete(libmoonlight::Result<(MoonlightBranch, DownloadedBranchInfo)>),
     PatchComplete(libmoonlight::Result<PathBuf>),
     UnpatchComplete(libmoonlight::Result<PathBuf>),
 }
@@ -32,12 +39,15 @@ pub fn app_logic_thread(
         match rx.recv()? {
             LogicCommand::GetLatestVersion(branch) => {
                 let latest_version = installer.get_latest_moonlight_version(branch);
-                tx.send(LogicResponse::LatestVersion(latest_version))?;
+                tx.send(LogicResponse::LatestVersion(
+                    latest_version.map(|v| (branch, v)),
+                ))?;
             }
 
-            LogicCommand::GetDownloadedVersion => {
-                let downloaded_version = installer.get_downloaded_version().unwrap_or(None);
-                tx.send(LogicResponse::DownloadedVersion(downloaded_version))?;
+            LogicCommand::GetDownloadedVersions => {
+                // TODO: handle errors
+                let downloaded_versions = installer.get_downloaded_versions().unwrap_or_default();
+                tx.send(LogicResponse::DownloadedVersions(downloaded_versions))?;
             }
 
             LogicCommand::GetInstalls => {
@@ -46,16 +56,18 @@ pub fn app_logic_thread(
             }
 
             LogicCommand::UpdateMoonlight(branch) => {
-                let err = installer.download_moonlight(branch);
-                if let Ok(ref version) = err {
-                    installer.set_downloaded_version(version).ok();
+                let result = installer.download_moonlight(branch);
+                if let Ok(info) = &result {
+                    installer.set_downloaded_version(branch, info.clone()).ok();
                 }
-                tx.send(LogicResponse::UpdateComplete(err))?;
+                tx.send(LogicResponse::UpdateComplete(
+                    result.map(|info| (branch, info)),
+                ))?;
             }
 
-            LogicCommand::PatchInstall(install) => {
+            LogicCommand::PatchInstall { branch, install } => {
                 let resp = installer
-                    .patch_install(&install, None)
+                    .patch_install(&install, get_download_dir(branch), branch)
                     .map(|()| install.path);
                 tx.send(LogicResponse::PatchComplete(resp))?;
             }

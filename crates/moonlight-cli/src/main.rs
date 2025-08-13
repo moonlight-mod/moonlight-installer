@@ -1,6 +1,6 @@
 use clap::{CommandFactory, Parser, Subcommand};
-use libmoonlight::detect_install;
 use libmoonlight::types::MoonlightBranch;
+use libmoonlight::{detect_install, get_download_dir};
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
@@ -26,6 +26,8 @@ pub enum Commands {
     Patch {
         exe: PathBuf,
 
+        branch: MoonlightBranch,
+
         /// Path to a custom moonlight build
         #[clap(long, short)]
         moonlight: Option<PathBuf>,
@@ -50,12 +52,16 @@ fn main() -> eyre::Result<()> {
     match cli.command {
         Commands::Install { branch } => {
             log::info!("Downloading moonlight branch {}", branch);
-            let ver = installer.download_moonlight(branch)?;
-            installer.set_downloaded_version(&ver)?;
-            log::info!("Downloaded version {}", ver);
+            let info = installer.download_moonlight(branch)?;
+            log::info!("Downloaded version {}", info.version);
+            installer.set_downloaded_version(branch, info)?;
         }
 
-        Commands::Patch { exe, moonlight } => {
+        Commands::Patch {
+            exe,
+            branch,
+            moonlight,
+        } => {
             log::info!("Patching install at {:?}", exe);
             let install = detect_install(&exe);
             if let Some(install) = install {
@@ -64,7 +70,11 @@ fn main() -> eyre::Result<()> {
                     installer.unpatch_install(&install.install)?;
                 }
 
-                installer.patch_install(&install.install, moonlight)?;
+                installer.patch_install(
+                    &install.install,
+                    moonlight.unwrap_or_else(|| get_download_dir(branch)),
+                    branch,
+                )?;
                 log::info!("Patched install at {:?}", exe);
             } else {
                 log::error!("Failed to detect install at {:?}", exe);

@@ -1,14 +1,19 @@
 use super::types::{Branch, DetectedInstall, GitHubRelease, InstallInfo, MoonlightBranch};
 use super::util::{get_download_dir, get_home_dir};
+use crate::types::{
+    DownloadedBranchInfo, DownloadedMap, MoonlightMeta, TemplatedPathBuf, TemplatedPathBufBase,
+};
 use crate::{
     ensure_flatpak_overrides, get_app_dir, get_local_share, get_local_share_workaround,
-    get_moonlight_dir, DOWNLOAD_DIR, PATCHED_ASAR,
+    get_moonlight_dir, PATCHED_ASAR,
 };
-use std::path::PathBuf;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 const USER_AGENT: &str =
     "moonlight-installer (https://github.com/moonlight-mod/moonlight-installer)";
-const INSTALLED_VERSION_FILE: &str = ".moonlight-installed-version";
+const LEGACY_INSTALLED_VERSION_FILE: &str = ".moonlight-installed-version";
+const INSTALLED_VERSIONS_FILE: &str = "moonlight-installed-versions.json";
 
 const GITHUB_REPO: &str = "moonlight-mod/moonlight";
 const ARTIFACT_NAME: &str = "dist.tar.gz";
@@ -29,8 +34,11 @@ impl Installer {
         Self {}
     }
 
-    pub fn download_moonlight(&self, branch: MoonlightBranch) -> crate::Result<String> {
-        let dir = get_download_dir();
+    pub fn download_moonlight(
+        &self,
+        branch: MoonlightBranch,
+    ) -> crate::Result<DownloadedBranchInfo> {
+        let dir = get_download_dir(branch);
 
         if dir.exists() {
             std::fs::remove_dir_all(&dir)?;
@@ -38,13 +46,17 @@ impl Installer {
 
         std::fs::create_dir_all(&dir)?;
 
-        Ok(match branch {
-            MoonlightBranch::Stable => self.download_stable(dir)?,
-            MoonlightBranch::Nightly => self.download_nightly(dir)?,
-        })
+        let version = match branch {
+            MoonlightBranch::Stable => self.download_stable(&dir)?,
+            MoonlightBranch::Nightly => self.download_nightly(&dir)?,
+        };
+
+        let path = TemplatedPathBuf::try_relative(dir);
+
+        Ok(DownloadedBranchInfo { version, path })
     }
 
-    fn download_stable(&self, dir: PathBuf) -> crate::Result<String> {
+    fn download_stable(&self, dir: impl AsRef<Path>) -> crate::Result<String> {
         let release = self.get_stable_release()?;
         let asset = release
             .assets
@@ -62,7 +74,7 @@ impl Installer {
         Ok(release.name)
     }
 
-    fn download_nightly(&self, dir: PathBuf) -> crate::Result<String> {
+    fn download_nightly(&self, dir: impl AsRef<Path>) -> crate::Result<String> {
         let version = self.get_nightly_version()?;
         let resp = reqwest::blocking::get(NIGHTLY_DIST_URL)?;
         let mut archive = tar::Archive::new(flate2::read::GzDecoder::new(resp));
@@ -77,15 +89,98 @@ impl Installer {
         }
     }
 
-    pub fn get_downloaded_version(&self) -> crate::Result<Option<String>> {
+    pub fn get_downloaded_versions(&self) -> crate::Result<DownloadedMap> {
         let dir = get_moonlight_dir();
-        let version = std::fs::read_to_string(dir.join(INSTALLED_VERSION_FILE)).ok();
-        Ok(version)
+        let legacy_file = dir.join(LEGACY_INSTALLED_VERSION_FILE);
+        let file = dir.join(INSTALLED_VERSIONS_FILE);
+
+        if std::fs::exists(&legacy_file)? {
+            // special case: migration from <=v0.2.5
+            let serialized_version = std::fs::read_to_string(&legacy_file)?;
+
+            let installed_version = if serialized_version.is_empty() {
+                // No versions installed…I guess?
+                None
+            } else if serialized_version.starts_with('v') {
+                Some((MoonlightBranch::Stable, serialized_version))
+            } else {
+                Some((MoonlightBranch::Nightly, serialized_version))
+            };
+
+            let versions = if get_moonlight_dir().join("dist").exists() {
+                installed_version.map(|(branch, version)| {
+                    HashMap::from([(
+                        branch,
+                        DownloadedBranchInfo {
+                            version,
+                            path: TemplatedPathBuf {
+                                relative_to: Some(TemplatedPathBufBase::Moonlight),
+                                path_str: PathBuf::from("dist"),
+                            },
+                        },
+                    )])
+                })
+            } else {
+                None
+            }
+            .unwrap_or_default();
+
+            let serialized = serde_json::to_string_pretty(&versions)?;
+
+            std::fs::write(&file, serialized)?;
+            std::fs::remove_file(&legacy_file)?;
+
+            return Ok(versions);
+        }
+
+        let serialized_branches = match std::fs::read_to_string(&file) {
+            Ok(v) => v,
+            Err(err) => match err.kind() {
+                std::io::ErrorKind::NotFound => {
+                    // No versions installed
+                    return Ok(Default::default());
+                }
+                _ => return Err(err.into()),
+            },
+        };
+
+        let mut branches: DownloadedMap = match serde_json::from_str(&serialized_branches) {
+            Ok(v) => v,
+            Err(_err) => {
+                // assume empty file or something
+                return Ok(HashMap::new());
+            }
+        };
+
+        // filter out missing versions
+        for key in MoonlightBranch::ALL {
+            let Some(info) = branches.get(&key) else {
+                continue;
+            };
+
+            if !info.path.resolve().exists() {
+                branches.remove(&key);
+            }
+        }
+
+        Ok(branches)
     }
 
-    pub fn set_downloaded_version(&self, version: &str) -> crate::Result<()> {
+    pub fn set_downloaded_version(
+        &self,
+        branch: MoonlightBranch,
+        info: DownloadedBranchInfo,
+    ) -> crate::Result<()> {
         let dir = get_moonlight_dir();
-        std::fs::write(dir.join(INSTALLED_VERSION_FILE), version)?;
+
+        let mut current = self.get_downloaded_versions()?;
+
+        current.insert(branch, info);
+
+        let serialized = serde_json::to_string_pretty(&current)?;
+
+        std::fs::write(dir.join(INSTALLED_VERSIONS_FILE), serialized)?;
+
         Ok(())
     }
 
@@ -154,9 +249,20 @@ impl Installer {
                         });
 
                         if let Some(most_recent_install) = app_dirs.last() {
+                            let path = most_recent_install.path();
+
+                            let res_dir = get_app_dir(&path)?;
+                            let app_dir = res_dir.join("app");
+
+                            let moonlight_info =
+                                std::fs::read_to_string(app_dir.join("moonlight.json"))
+                                    .ok()
+                                    .and_then(|s| serde_json::from_str(&s).ok());
+
                             installs.push(DetectedInstall {
                                 branch,
-                                path: most_recent_install.path(),
+                                path,
+                                moonlight_info,
                                 flatpak_id: None,
                             });
                         }
@@ -189,11 +295,20 @@ impl Installer {
                             continue;
                         }
 
-                        let app_dir = macos_app_dir.join("Contents/Resources");
+                        let path = macos_app_dir.join("Contents/Resources");
+
+                        let res_dir = get_app_dir(&path)?;
+                        let app_dir = res_dir.join("app");
+
+                        let moonlight_info =
+                            std::fs::read_to_string(app_dir.join("moonlight.json"))
+                                .ok()
+                                .and_then(|s| serde_json::from_str(&s).ok());
 
                         installs.push(DetectedInstall {
                             branch,
-                            path: app_dir,
+                            path,
+                            moonlight_info,
                             flatpak_id: None,
                         });
                     }
@@ -222,9 +337,18 @@ impl Installer {
                     for local_share in &local_shares {
                         let path = local_share.join(dir);
                         if path.join(branch.name()).exists() {
+                            let res_dir = get_app_dir(&path)?;
+                            let app_dir = res_dir.join("app");
+
+                            let moonlight_info =
+                                std::fs::read_to_string(app_dir.join("moonlight.json"))
+                                    .ok()
+                                    .and_then(|s| serde_json::from_str(&s).ok());
+
                             installs.push(DetectedInstall {
                                 branch,
                                 path,
+                                moonlight_info,
                                 flatpak_id: id.map(Into::into),
                             });
                             break;
@@ -248,35 +372,38 @@ impl Installer {
     pub fn patch_install(
         &self,
         install: &DetectedInstall,
-        override_download_dir: Option<PathBuf>,
+        download_dir: PathBuf,
+        branch: MoonlightBranch,
     ) -> crate::Result<()> {
-        let download_dir = override_download_dir.unwrap_or_else(get_download_dir);
+        // TODO: atomic patching
 
-        // TODO: flatpak and stuff
-        let app_dir = get_app_dir(&install.path)?;
-        let asar = app_dir.join("app.asar");
+        let res_dir = get_app_dir(&install.path)?;
+        let app_dir = res_dir.join("app");
+        let asar = res_dir.join("app.asar");
         std::fs::rename(&asar, asar.with_file_name(PATCHED_ASAR))?;
-        std::fs::create_dir(app_dir.join("app"))?;
+        std::fs::create_dir(&app_dir)?;
 
         let json = serde_json::json!({
           "name": install.branch.dashed_name(),
           "main": "./injector.js",
           "private": true
         });
-        std::fs::write(app_dir.join("app/package.json"), json.to_string())?;
+        std::fs::write(app_dir.join("package.json"), json.to_string())?;
 
-        let moonlight_injector = download_dir.join("injector.js");
-        let injector = format!(
-            r#"const MOONLIGHT_INJECTOR = {};
-const PATCHED_ASAR = {};
-const DOWNLOAD_DIR = {};
-{}"#,
-            serde_json::to_string(&moonlight_injector).unwrap(),
-            serde_json::to_string(PATCHED_ASAR).unwrap(),
-            serde_json::to_string(DOWNLOAD_DIR).unwrap(),
-            include_str!("injector.js")
-        );
-        std::fs::write(app_dir.join("app/injector.js"), injector)?;
+        let injector_path = download_dir.join("injector.js");
+        let moonlight_injector = TemplatedPathBuf::try_relative(injector_path);
+
+        let moonlight_info = MoonlightMeta {
+            moonlight_injector,
+            patched_asar: PATCHED_ASAR.to_owned(),
+            branch,
+        };
+        std::fs::write(
+            app_dir.join("moonlight.json"),
+            serde_json::to_string_pretty(&moonlight_info)
+                .expect("MoonlightMeta's Serialize implementation should not fail"),
+        )?;
+        std::fs::write(app_dir.join("injector.js"), include_str!("injector.js"))?;
 
         if let Some(flatpak_id) = install.flatpak_id.as_deref() {
             ensure_flatpak_overrides(flatpak_id)?;

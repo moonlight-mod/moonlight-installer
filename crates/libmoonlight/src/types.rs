@@ -1,28 +1,37 @@
 use crate::get_moonlight_dir;
 use serde::de::Visitor;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::Display;
 use std::marker::PhantomData;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-#[derive(Serialize, Deserialize, clap::ValueEnum, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(
+    Serialize, Deserialize, clap::ValueEnum, Debug, Clone, Copy, PartialEq, Eq, Default, Hash,
+)]
 pub enum MoonlightBranch {
+    #[default]
     Stable,
     Nightly,
 }
 
 impl Display for MoonlightBranch {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Stable => write!(f, "stable"),
-            Self::Nightly => write!(f, "nightly"),
-        }
+        write!(f, "{}", self.as_str())
     }
 }
 
 impl MoonlightBranch {
+    pub const ALL: [Self; 2] = [Self::Stable, Self::Nightly];
+
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Stable => "stable",
+            Self::Nightly => "nightly",
+        }
+    }
+
     #[must_use]
     pub const fn name(&self) -> &'static str {
         match self {
@@ -44,7 +53,7 @@ impl MoonlightBranch {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum Branch {
     Stable,
@@ -55,19 +64,23 @@ pub enum Branch {
 
 impl Display for Branch {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Stable => write!(f, "Stable"),
-            Self::PTB => write!(f, "PTB"),
-            Self::Canary => write!(f, "Canary"),
-            Self::Development => write!(f, "Development"),
-        }
+        write!(f, "{}", self.as_str())
     }
 }
 
 impl Branch {
     #[must_use]
     pub fn config(&self) -> PathBuf {
-        get_moonlight_dir().join(format!("{}.json", self.to_string().to_lowercase()))
+        get_moonlight_dir().join(format!("{}.json", self.as_str().to_lowercase()))
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Stable => "Stable",
+            Self::PTB => "PTB",
+            Self::Canary => "Canary",
+            Self::Development => "Development",
+        }
     }
 
     pub fn name(&self) -> &'static str {
@@ -109,13 +122,65 @@ impl Branch {
             _ => unimplemented!(),
         }
     }
+
+    pub fn preferred_moonlight_branch(&self) -> MoonlightBranch {
+        match self {
+            Branch::Stable => MoonlightBranch::Stable,
+            _ => MoonlightBranch::Nightly,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DetectedInstall {
     pub branch: Branch,
     pub path: PathBuf,
+    pub moonlight_info: Option<MoonlightMeta>,
     pub flatpak_id: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum TemplatedPathBufBase {
+    Moonlight,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TemplatedPathBuf {
+    pub relative_to: Option<TemplatedPathBufBase>,
+    pub path_str: PathBuf,
+}
+
+impl TemplatedPathBuf {
+    pub fn try_relative(path_str: PathBuf) -> Self {
+        use TemplatedPathBufBase as Base;
+        pathdiff::diff_paths(&path_str, get_moonlight_dir())
+            .map(|path_str| Self {
+                relative_to: Some(Base::Moonlight),
+                path_str,
+            })
+            .unwrap_or(Self {
+                relative_to: None,
+                path_str,
+            })
+    }
+
+    pub fn resolve(&self) -> PathBuf {
+        match self.relative_to {
+            Some(TemplatedPathBufBase::Moonlight) => get_moonlight_dir(),
+            None => PathBuf::new(),
+        }
+        .join(&self.path_str)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub struct MoonlightMeta {
+    pub moonlight_injector: TemplatedPathBuf,
+    pub patched_asar: String,
+    pub branch: MoonlightBranch,
 }
 
 // Just DetectedInstall but tracking patched for the UI
@@ -138,6 +203,14 @@ pub struct GitHubRelease {
     pub name: String,
     pub assets: Vec<GitHubReleaseAsset>,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DownloadedBranchInfo {
+    pub version: String,
+    pub path: TemplatedPathBuf,
+}
+
+pub type DownloadedMap = HashMap<MoonlightBranch, DownloadedBranchInfo>;
 
 // we only care about filesystem so
 #[derive(Serialize, Deserialize, Debug)]
@@ -290,15 +363,17 @@ impl Display for FlatpakFilesystemOverride {
 // format correctly except for flatpak itself, so we wont try too hard
 impl<T> Serialize for FlatpakArray<T>
 where
-    T: ToString,
+    T: Display,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        let as_strings: Vec<String> = self.iter().map(|x| x.to_string()).collect();
-        let mut v = as_strings.join(";");
-        v += ";";
+        use std::fmt::Write;
+        let mut v = String::with_capacity(self.len());
+        for part in self.iter() {
+            let _ = write!(&mut v, "{part};");
+        }
         serializer.serialize_str(&v)
     }
 }
