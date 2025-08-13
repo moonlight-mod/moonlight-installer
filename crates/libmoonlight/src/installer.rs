@@ -51,7 +51,7 @@ impl Installer {
             MoonlightBranch::Nightly => self.download_nightly(&dir)?,
         };
 
-        let path = pathdiff::diff_paths(&dir, get_moonlight_dir()).unwrap_or(dir);
+        let path = TemplatedPathBuf::try_relative(dir);
 
         Ok(DownloadedBranchInfo { version, path })
     }
@@ -113,7 +113,10 @@ impl Installer {
                         branch,
                         DownloadedBranchInfo {
                             version,
-                            path: PathBuf::from("dist"),
+                            path: TemplatedPathBuf {
+                                relative_to: Some(TemplatedPathBufBase::Moonlight),
+                                path_str: PathBuf::from("dist"),
+                            },
                         },
                     )])
                 })
@@ -130,7 +133,7 @@ impl Installer {
             return Ok(versions);
         }
 
-        let serialized_versions = match std::fs::read_to_string(&file) {
+        let serialized_branches = match std::fs::read_to_string(&file) {
             Ok(v) => v,
             Err(err) => match err.kind() {
                 std::io::ErrorKind::NotFound => {
@@ -141,38 +144,37 @@ impl Installer {
             },
         };
 
-        let mut versions: DownloadedMap = serde_json::from_str(&serialized_versions)?;
+        let mut branches: DownloadedMap = match serde_json::from_str(&serialized_branches) {
+            Ok(v) => v,
+            Err(_err) => {
+                // assume empty file or something
+                return Ok(HashMap::new());
+            }
+        };
 
         // filter out missing versions
         for key in MoonlightBranch::ALL {
-            let Some(info) = versions.get(&key) else {
+            let Some(info) = branches.get(&key) else {
                 continue;
             };
 
-            let path = if info.path.is_relative() {
-                &get_moonlight_dir().join(&info.path)
-            } else {
-                &info.path
-            };
-
-            if !path.exists() {
-                versions.remove(&key);
+            if !info.path.resolve().exists() {
+                branches.remove(&key);
             }
         }
 
-        Ok(versions)
+        Ok(branches)
     }
 
     pub fn set_downloaded_version(
         &self,
         branch: MoonlightBranch,
-        version: String,
-        path: PathBuf,
+        info: DownloadedBranchInfo,
     ) -> crate::Result<()> {
         let dir = get_moonlight_dir();
 
         let mut current = self.get_downloaded_versions()?;
-        let info = DownloadedBranchInfo { version, path };
+
         current.insert(branch, info);
 
         let serialized = serde_json::to_string_pretty(&current)?;
@@ -389,15 +391,7 @@ impl Installer {
         std::fs::write(app_dir.join("package.json"), json.to_string())?;
 
         let injector_path = download_dir.join("injector.js");
-        let moonlight_injector = pathdiff::diff_paths(&injector_path, get_moonlight_dir())
-            .map(|path_str| TemplatedPathBuf {
-                relative_to: Some(TemplatedPathBufBase::Moonlight),
-                path_str,
-            })
-            .unwrap_or(TemplatedPathBuf {
-                relative_to: None,
-                path_str: injector_path,
-            });
+        let moonlight_injector = TemplatedPathBuf::try_relative(injector_path);
 
         let moonlight_info = MoonlightMeta {
             moonlight_injector,

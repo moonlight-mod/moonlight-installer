@@ -152,6 +152,29 @@ pub struct TemplatedPathBuf {
     pub path_str: PathBuf,
 }
 
+impl TemplatedPathBuf {
+    pub fn try_relative(path_str: PathBuf) -> Self {
+        use TemplatedPathBufBase as Base;
+        pathdiff::diff_paths(&path_str, get_moonlight_dir())
+            .map(|path_str| Self {
+                relative_to: Some(Base::Moonlight),
+                path_str,
+            })
+            .unwrap_or(Self {
+                relative_to: None,
+                path_str,
+            })
+    }
+
+    pub fn resolve(&self) -> PathBuf {
+        match self.relative_to {
+            Some(TemplatedPathBufBase::Moonlight) => get_moonlight_dir(),
+            None => PathBuf::new(),
+        }
+        .join(&self.path_str)
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub struct MoonlightMeta {
@@ -184,8 +207,7 @@ pub struct GitHubRelease {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DownloadedBranchInfo {
     pub version: String,
-    /// MUST be relative to the moonlight directory (~/.config/moonlight-mod), or an absolute path
-    pub path: PathBuf,
+    pub path: TemplatedPathBuf,
 }
 
 pub type DownloadedMap = HashMap<MoonlightBranch, DownloadedBranchInfo>;

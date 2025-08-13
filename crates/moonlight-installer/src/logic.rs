@@ -57,10 +57,8 @@ pub fn app_logic_thread(
 
             LogicCommand::UpdateMoonlight(branch) => {
                 let result = installer.download_moonlight(branch);
-                if let Ok(DownloadedBranchInfo { version, path }) = &result {
-                    installer
-                        .set_downloaded_version(branch, version.to_owned(), path.to_owned())
-                        .ok();
+                if let Ok(info) = &result {
+                    installer.set_downloaded_version(branch, info.clone()).ok();
                 }
                 tx.send(LogicResponse::UpdateComplete(
                     result.map(|info| (branch, info)),
