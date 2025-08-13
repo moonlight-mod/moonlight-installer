@@ -1,6 +1,8 @@
 use super::types::{Branch, DetectedInstall, GitHubRelease, InstallInfo, MoonlightBranch};
 use super::util::{get_download_dir, get_home_dir};
-use crate::types::{DownloadedBranchInfo, DownloadedMap, MoonlightMeta};
+use crate::types::{
+    DownloadedBranchInfo, DownloadedMap, MoonlightMeta, TemplatedPathBuf, TemplatedPathBufBase,
+};
 use crate::{
     ensure_flatpak_overrides, get_app_dir, get_local_share, get_local_share_workaround,
     get_moonlight_dir, PATCHED_ASAR,
@@ -386,7 +388,17 @@ impl Installer {
         });
         std::fs::write(app_dir.join("package.json"), json.to_string())?;
 
-        let moonlight_injector = download_dir.join("injector.js");
+        let injector_path = download_dir.join("injector.js");
+        let moonlight_injector = pathdiff::diff_paths(&injector_path, get_moonlight_dir())
+            .map(|path_str| TemplatedPathBuf {
+                relative_to: Some(TemplatedPathBufBase::Moonlight),
+                path_str,
+            })
+            .unwrap_or(TemplatedPathBuf {
+                relative_to: None,
+                path_str: injector_path,
+            });
+
         let moonlight_info = MoonlightMeta {
             moonlight_injector,
             patched_asar: PATCHED_ASAR.to_owned(),

@@ -18,15 +18,19 @@ pub enum MoonlightBranch {
 
 impl Display for MoonlightBranch {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Stable => write!(f, "stable"),
-            Self::Nightly => write!(f, "nightly"),
-        }
+        write!(f, "{}", self.as_str())
     }
 }
 
 impl MoonlightBranch {
     pub const ALL: [Self; 2] = [Self::Stable, Self::Nightly];
+
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Stable => "stable",
+            Self::Nightly => "nightly",
+        }
+    }
 
     #[must_use]
     pub const fn name(&self) -> &'static str {
@@ -60,19 +64,23 @@ pub enum Branch {
 
 impl Display for Branch {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Stable => write!(f, "Stable"),
-            Self::PTB => write!(f, "PTB"),
-            Self::Canary => write!(f, "Canary"),
-            Self::Development => write!(f, "Development"),
-        }
+        write!(f, "{}", self.as_str())
     }
 }
 
 impl Branch {
     #[must_use]
     pub fn config(&self) -> PathBuf {
-        get_moonlight_dir().join(format!("{}.json", self.to_string().to_lowercase()))
+        get_moonlight_dir().join(format!("{}.json", self.as_str().to_lowercase()))
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Stable => "Stable",
+            Self::PTB => "PTB",
+            Self::Canary => "Canary",
+            Self::Development => "Development",
+        }
     }
 
     pub fn name(&self) -> &'static str {
@@ -131,10 +139,23 @@ pub struct DetectedInstall {
     pub flatpak_id: Option<String>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum TemplatedPathBufBase {
+    Moonlight,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TemplatedPathBuf {
+    pub relative_to: Option<TemplatedPathBufBase>,
+    pub path_str: PathBuf,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub struct MoonlightMeta {
-    pub moonlight_injector: PathBuf,
+    pub moonlight_injector: TemplatedPathBuf,
     pub patched_asar: String,
     pub branch: MoonlightBranch,
 }
@@ -320,15 +341,17 @@ impl Display for FlatpakFilesystemOverride {
 // format correctly except for flatpak itself, so we wont try too hard
 impl<T> Serialize for FlatpakArray<T>
 where
-    T: ToString,
+    T: Display,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        let as_strings: Vec<String> = self.iter().map(|x| x.to_string()).collect();
-        let mut v = as_strings.join(";");
-        v += ";";
+        use std::fmt::Write;
+        let mut v = String::with_capacity(self.len());
+        for part in self.iter() {
+            let _ = write!(&mut v, "{part};");
+        }
         serializer.serialize_str(&v)
     }
 }
