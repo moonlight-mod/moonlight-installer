@@ -259,7 +259,7 @@ impl Installer {
         std::fs::create_dir(app_dir.join("app"))?;
 
         let json = serde_json::json!({
-          "name": install.branch.dashed_name(),
+          "name": "discord",
           "main": "./injector.js",
           "private": true
         });
