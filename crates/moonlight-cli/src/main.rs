@@ -70,11 +70,12 @@ fn main() -> eyre::Result<()> {
                     installer.unpatch_install(&install.install)?;
                 }
 
-                installer.patch_install(
-                    &install.install,
-                    moonlight.unwrap_or_else(|| get_download_dir(branch)),
-                    branch,
-                )?;
+                let Some(injector_path) = moonlight.or_else(|| get_download_dir(branch)) else {
+                    log::error!("Download moonlight {} first", branch.name());
+                    std::process::exit(1);
+                };
+
+                installer.patch_install(&install.install, injector_path, branch)?;
                 log::info!("Patched install at {:?}", exe);
             } else {
                 log::error!("Failed to detect install at {:?}", exe);

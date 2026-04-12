@@ -1,7 +1,7 @@
 use libmoonlight::types::{
     Branch, DetectedInstall, DownloadedBranchInfo, DownloadedMap, InstallInfo, MoonlightBranch,
 };
-use libmoonlight::{get_download_dir, Installer};
+use libmoonlight::Installer;
 use std::path::PathBuf;
 
 pub type Version = String;
@@ -66,8 +66,12 @@ pub fn app_logic_thread(
             }
 
             LogicCommand::PatchInstall { branch, install } => {
+                let downloaded_versions = installer.get_downloaded_versions().unwrap_or_default();
+                let DownloadedBranchInfo { path, .. } = downloaded_versions
+                    .get(&branch)
+                    .expect("patch button shouldn't be clickable if not downloaded");
                 let resp = installer
-                    .patch_install(&install, get_download_dir(branch), branch)
+                    .patch_install(&install, path.resolve(), branch)
                     .map(|()| install.path);
                 tx.send(LogicResponse::PatchComplete(resp))?;
             }

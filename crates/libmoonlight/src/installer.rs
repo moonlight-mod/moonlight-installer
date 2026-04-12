@@ -1,5 +1,5 @@
 use super::types::{Branch, DetectedInstall, GitHubRelease, InstallInfo, MoonlightBranch};
-use super::util::{get_download_dir, get_home_dir};
+use super::util::{default_download_dir, get_home_dir};
 use crate::types::{
     DownloadedBranchInfo, DownloadedMap, MoonlightMeta, TemplatedPathBuf, TemplatedPathBufBase,
 };
@@ -38,7 +38,7 @@ impl Installer {
         &self,
         branch: MoonlightBranch,
     ) -> crate::Result<DownloadedBranchInfo> {
-        let dir = get_download_dir(branch);
+        let dir = default_download_dir(branch);
 
         if dir.exists() {
             std::fs::remove_dir_all(&dir)?;

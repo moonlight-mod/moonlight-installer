@@ -1,9 +1,12 @@
 #[cfg(unix)]
 use nix::unistd::{Uid, User};
 
-use crate::types::{
-    Branch, DetectedInstall, FlatpakFilesystemOverride, FlatpakFilesystemOverridePermission,
-    FlatpakOverrides, InstallInfo, MoonlightBranch,
+use crate::{
+    types::{
+        Branch, DetectedInstall, FlatpakFilesystemOverride, FlatpakFilesystemOverridePermission,
+        FlatpakOverrides, InstallInfo, MoonlightBranch,
+    },
+    Installer,
 };
 use std::path::{Path, PathBuf};
 
@@ -84,8 +87,14 @@ pub fn get_app_dir(path: &Path) -> crate::Result<PathBuf> {
 }
 
 #[must_use]
-pub fn get_download_dir(branch: MoonlightBranch) -> PathBuf {
+pub fn default_download_dir(branch: MoonlightBranch) -> PathBuf {
     get_moonlight_dir().join(DOWNLOAD_DIR).join(branch.as_str())
+}
+
+pub fn get_download_dir(branch: MoonlightBranch) -> Option<PathBuf> {
+    let installer = Installer::new();
+    let mut versions = installer.get_downloaded_versions().unwrap_or_default();
+    versions.remove(&branch).map(|info| info.path.resolve())
 }
 
 pub fn get_compat_download_dir() -> PathBuf {
