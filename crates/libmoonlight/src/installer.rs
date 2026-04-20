@@ -1,8 +1,8 @@
 use super::types::{Branch, DetectedInstall, GitHubRelease, InstallInfo, MoonlightBranch};
 use super::util::{get_download_dir, get_home_dir};
 use crate::{
-    ensure_flatpak_overrides, get_app_dir, get_local_share, get_local_share_workaround,
-    get_moonlight_dir, DOWNLOAD_DIR, PATCHED_ASAR,
+    ensure_flatpak_overrides, get_app_dir, get_dot_config, get_local_share,
+    get_local_share_workaround, get_moonlight_dir, DOWNLOAD_DIR, PATCHED_ASAR,
 };
 use std::path::PathBuf;
 
@@ -206,8 +206,7 @@ impl Installer {
                 // this is a crime but it has to be done...
                 // please merge pr flatpak devs
                 let local_shares = [get_local_share(), get_local_share_workaround()];
-
-                let dirs = [
+                let local_share_dirs = [
                     ("Discord", Branch::Stable, None),
                     ("DiscordPTB", Branch::PTB, None),
                     ("DiscordCanary", Branch::Canary, None),
@@ -218,16 +217,50 @@ impl Installer {
                 ];
 
                 let mut installs = vec![];
-                for (dir, branch, id) in dirs {
+                for (dir, branch, id) in local_share_dirs {
                     for local_share in &local_shares {
                         let path = local_share.join(dir);
-                        if path.join(branch.name()).exists() {
+                        if path.join(branch.name()).exists() && path.join("resources").exists() {
                             installs.push(DetectedInstall {
                                 branch,
                                 path,
                                 flatpak_id: id.map(Into::into),
                             });
                             break;
+                        }
+                    }
+                }
+
+                // Handle the new updater, which lives in ~/.config
+                let dot_config = get_dot_config();
+                let dot_config_dirs = [
+                    ("discord", Branch::Stable),
+                    ("discordptb", Branch::PTB),
+                    ("discordcanary", Branch::Canary),
+                    ("discorddevelopment", Branch::Development),
+                ];
+                for (dir, branch) in dot_config_dirs {
+                    let path = dot_config.join(dir);
+
+                    if path.exists() {
+                        // app-(version)
+                        let mut app_dirs: Vec<_> = std::fs::read_dir(&path)?
+                            .filter_map(Result::ok)
+                            .filter(|x| x.file_name().to_string_lossy().starts_with("app-"))
+                            .collect();
+
+                        app_dirs.sort_by(|a, b| {
+                            let a_file_name = a.file_name();
+                            let b_file_name = b.file_name();
+                            a_file_name.cmp(&b_file_name)
+                        });
+
+                        if let Some(most_recent_install) = app_dirs.last() {
+                            installs.push(DetectedInstall {
+                                branch,
+                                path: most_recent_install.path(),
+                                flatpak_id: None,
+                            });
                         }
                     }
                 }
