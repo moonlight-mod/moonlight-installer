@@ -148,11 +148,7 @@ impl Installer {
                             .filter(|x| x.file_name().to_string_lossy().starts_with("app-"))
                             .collect();
 
-                        app_dirs.sort_by(|a, b| {
-                            let a_file_name = a.file_name();
-                            let b_file_name = b.file_name();
-                            a_file_name.cmp(&b_file_name)
-                        });
+                        app_dirs.sort_by_key(DirEntry::file_name);
 
                         if let Some(most_recent_install) = app_dirs.last() {
                             installs.push(DetectedInstall {
