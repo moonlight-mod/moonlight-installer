@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
   <id>io.github.moonlight_mod.moonlight-installer</id>
-  
+
   <name>moonlight installer</name>
   <summary>Installer for moonlight, yet another Discord client mod</summary>
 
   <icon type="stock">io.github.moonlight_mod.moonlight-installer</icon>
   <icon type="remote">https://raw.githubusercontent.com/moonlight-mod/moonlight-mod.github.io/refs/heads/main/public/favicon.png</icon>
-  
+
   <url type="homepage">https://moonlight-mod.github.io/</url>
   <url type="bugtracker">https://github.com/moonlight-mod/moonlight-installer/issues</url>
   <url type="contribute">https://github.com/moonlight-mod/moonlight-installer</url>
@@ -23,13 +23,13 @@
 
   <metadata_license>MIT</metadata_license>
   <project_license>MIT</project_license>
-  
+
   <supports>
     <control>pointing</control>
     <control>keyboard</control>
     <control>touch</control>
   </supports>
-  
+
   <description>
     <p>
       moonlight is yet another Discord client mod, focused on providing a decent user and developer experience.
@@ -46,7 +46,7 @@
     <keyword>Discord modification</keyword>
     <keyword>moonlight-mod</keyword>
   </keywords>
-  
+
   <launchable type="desktop-id">io.github.moonlight_mod.moonlight-installer.desktop</launchable>
   <screenshots>
     <screenshot type="default">
@@ -63,6 +63,15 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="0.2.6" date="2026-04-20">
+      <url type="details">https://github.com/moonlight-mod/moonlight-installer/releases/tag/v0.2.6</url>
+      <description>
+        <p>moonlight-installer v0.2.6</p>
+        <ul>
+          <li>Added support for the new Discord updater on Linux</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.2.5" date="2025-01-20">
       <url type="details">https://github.com/moonlight-mod/moonlight-installer/releases/tag/v0.2.5</url>
       <description>

@@ -4,10 +4,11 @@ use crate::types::{
     DownloadedBranchInfo, DownloadedMap, MoonlightMeta, TemplatedPathBuf, TemplatedPathBufBase,
 };
 use crate::{
-    ensure_flatpak_overrides, get_app_dir, get_local_share, get_local_share_workaround,
-    get_moonlight_dir, PATCHED_ASAR,
+    ensure_flatpak_overrides, get_app_dir, get_dot_config, get_local_share,
+    get_local_share_workaround, get_moonlight_dir, PATCHED_ASAR,
 };
 use std::collections::HashMap;
+use std::fs::DirEntry;
 use std::path::{Path, PathBuf};
 
 const USER_AGENT: &str =
@@ -242,11 +243,7 @@ impl Installer {
                             .filter(|x| x.file_name().to_string_lossy().starts_with("app-"))
                             .collect();
 
-                        app_dirs.sort_by(|a, b| {
-                            let a_file_name = a.file_name();
-                            let b_file_name = b.file_name();
-                            a_file_name.cmp(&b_file_name)
-                        });
+                        app_dirs.sort_by_key(DirEntry::file_name);
 
                         if let Some(most_recent_install) = app_dirs.last() {
                             let path = most_recent_install.path();
@@ -321,8 +318,7 @@ impl Installer {
                 // this is a crime but it has to be done...
                 // please merge pr flatpak devs
                 let local_shares = [get_local_share(), get_local_share_workaround()];
-
-                let dirs = [
+                let local_share_dirs = [
                     ("Discord", Branch::Stable, None),
                     ("DiscordPTB", Branch::PTB, None),
                     ("DiscordCanary", Branch::Canary, None),
@@ -333,10 +329,10 @@ impl Installer {
                 ];
 
                 let mut installs = vec![];
-                for (dir, branch, id) in dirs {
+                for (dir, branch, id) in local_share_dirs {
                     for local_share in &local_shares {
                         let path = local_share.join(dir);
-                        if path.join(branch.name()).exists() {
+                        if path.join(branch.name()).exists() && path.join("resources").exists() {
                             let res_dir = get_app_dir(&path)?;
                             let app_dir = res_dir.join("app");
 
@@ -352,6 +348,43 @@ impl Installer {
                                 flatpak_id: id.map(Into::into),
                             });
                             break;
+                        }
+                    }
+                }
+
+                // Handle the new updater, which lives in ~/.config
+                let dot_config = get_dot_config();
+                let dot_config_dirs = [
+                    ("discord", Branch::Stable),
+                    ("discordptb", Branch::PTB),
+                    ("discordcanary", Branch::Canary),
+                    ("discorddevelopment", Branch::Development),
+                ];
+                for (dir, branch) in dot_config_dirs {
+                    let path = dot_config.join(dir);
+
+                    if path.exists() {
+                        // app-(version)
+                        let mut app_dirs: Vec<_> = std::fs::read_dir(&path)?
+                            .filter_map(Result::ok)
+                            .filter(|x| x.file_name().to_string_lossy().starts_with("app-"))
+                            .collect();
+
+                        app_dirs.sort_by_key(DirEntry::file_name);
+
+                        if let Some(most_recent_install) = app_dirs.last() {
+                            let path = most_recent_install.path();
+                            let moonlight_info =
+                                std::fs::read_to_string(path.join("moonlight.json"))
+                                    .ok()
+                                    .and_then(|s| serde_json::from_str(&s).ok());
+
+                            installs.push(DetectedInstall {
+                                branch,
+                                moonlight_info,
+                                path,
+                                flatpak_id: None,
+                            });
                         }
                     }
                 }
@@ -384,7 +417,7 @@ impl Installer {
         std::fs::create_dir(&app_dir)?;
 
         let json = serde_json::json!({
-          "name": install.branch.dashed_name(),
+          "name": "discord",
           "main": "./injector.js",
           "private": true
         });
