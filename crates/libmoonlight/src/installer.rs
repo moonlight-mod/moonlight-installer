@@ -4,6 +4,7 @@ use crate::{
     ensure_flatpak_overrides, get_app_dir, get_dot_config, get_local_share,
     get_local_share_workaround, get_moonlight_dir, DOWNLOAD_DIR, PATCHED_ASAR,
 };
+use std::env::home_dir;
 use std::fs::DirEntry;
 use std::path::PathBuf;
 
@@ -229,7 +230,12 @@ impl Installer {
                 }
 
                 // Handle the new updater, which lives in ~/.config
-                let dot_config = get_dot_config();
+                let home = home_dir().unwrap();
+                let dot_configs = [
+                    get_dot_config(),
+                    home.join(".var/app/com.discordapp.Discord/config"),
+                    home.join(".var/app/com.discordapp.DiscordCanary/config"),
+                ];
                 let dot_config_dirs = [
                     ("discord", Branch::Stable),
                     ("discordptb", Branch::PTB),
@@ -237,23 +243,25 @@ impl Installer {
                     ("discorddevelopment", Branch::Development),
                 ];
                 for (dir, branch) in dot_config_dirs {
-                    let path = dot_config.join(dir);
+                    for dot_config in &dot_configs {
+                        let path = dot_config.join(dir);
 
-                    if path.exists() {
-                        // app-(version)
-                        let mut app_dirs: Vec<_> = std::fs::read_dir(&path)?
-                            .filter_map(Result::ok)
-                            .filter(|x| x.file_name().to_string_lossy().starts_with("app-"))
-                            .collect();
+                        if path.exists() {
+                            // app-(version)
+                            let mut app_dirs: Vec<_> = std::fs::read_dir(&path)?
+                                .filter_map(Result::ok)
+                                .filter(|x| x.file_name().to_string_lossy().starts_with("app-"))
+                                .collect();
 
-                        app_dirs.sort_by_key(DirEntry::file_name);
+                            app_dirs.sort_by_key(DirEntry::file_name);
 
-                        if let Some(most_recent_install) = app_dirs.last() {
-                            installs.push(DetectedInstall {
-                                branch,
-                                path: most_recent_install.path(),
-                                flatpak_id: None,
-                            });
+                            if let Some(most_recent_install) = app_dirs.last() {
+                                installs.push(DetectedInstall {
+                                    branch,
+                                    path: most_recent_install.path(),
+                                    flatpak_id: None,
+                                });
+                            }
                         }
                     }
                 }
