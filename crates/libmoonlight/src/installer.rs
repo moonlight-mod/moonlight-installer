@@ -232,9 +232,15 @@ impl Installer {
                 // Handle the new updater, which lives in ~/.config
                 let home = home_dir().unwrap();
                 let dot_configs = [
-                    get_dot_config(),
-                    home.join(".var/app/com.discordapp.Discord/config"),
-                    home.join(".var/app/com.discordapp.DiscordCanary/config"),
+                    (get_dot_config(), None),
+                    (
+                        home.join(".var/app/com.discordapp.Discord/config"),
+                        Some("com.discordapp.Discord"),
+                    ),
+                    (
+                        home.join(".var/app/com.discordapp.DiscordCanary/config"),
+                        Some("com.discordapp.DiscordCanary"),
+                    ),
                 ];
                 let dot_config_dirs = [
                     ("discord", Branch::Stable),
@@ -243,7 +249,7 @@ impl Installer {
                     ("discorddevelopment", Branch::Development),
                 ];
                 for (dir, branch) in dot_config_dirs {
-                    for dot_config in &dot_configs {
+                    for (dot_config, flatpak_id) in &dot_configs {
                         let path = dot_config.join(dir);
 
                         if path.exists() {
@@ -259,7 +265,7 @@ impl Installer {
                                 installs.push(DetectedInstall {
                                     branch,
                                     path: most_recent_install.path(),
-                                    flatpak_id: None,
+                                    flatpak_id: flatpak_id.to_owned().map(ToOwned::to_owned),
                                 });
                             }
                         }
