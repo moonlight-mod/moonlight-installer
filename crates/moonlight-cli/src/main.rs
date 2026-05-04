@@ -56,6 +56,7 @@ fn main() -> eyre::Result<()> {
         }
 
         Commands::Patch { exe, moonlight } => {
+            let exe = std::fs::canonicalize(&exe)?;
             log::info!("Patching install at {:?}", exe);
             let install = detect_install(&exe);
             if let Some(install) = install {
@@ -73,6 +74,7 @@ fn main() -> eyre::Result<()> {
         }
 
         Commands::Unpatch { exe } => {
+            let exe = std::fs::canonicalize(&exe)?;
             log::info!("Unpatching install at {:?}", exe);
             let install = detect_install(&exe);
             if let Some(install) = install {
