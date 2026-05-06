@@ -18,3 +18,4 @@ thiserror = { workspace = true }
 nix = { workspace = true }
 serde_ini = { workspace = true }
 serde-value = { workspace = true }
+pathdiff = { workspace = true }
