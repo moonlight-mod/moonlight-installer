@@ -1,9 +1,12 @@
 #[cfg(unix)]
 use nix::unistd::{Uid, User};
 
-use crate::types::{
-    Branch, DetectedInstall, FlatpakFilesystemOverride, FlatpakFilesystemOverridePermission,
-    FlatpakOverrides, InstallInfo,
+use crate::{
+    types::{
+        Branch, DetectedInstall, FlatpakFilesystemOverride, FlatpakFilesystemOverridePermission,
+        FlatpakOverrides, InstallInfo, MoonlightBranch,
+    },
+    Installer,
 };
 use std::path::{Path, PathBuf};
 
@@ -56,15 +59,21 @@ pub fn detect_install_type(exe: &Path) -> Option<Branch> {
 pub fn detect_install(exe: &Path) -> Option<InstallInfo> {
     let folder = exe.parent()?;
     let install_type = detect_install_type(exe)?;
-    let app_dir = get_app_dir(folder).ok()?;
+    let res_dir = get_app_dir(folder).ok()?;
+    let app_dir = res_dir.join("app");
+
+    let moonlight_info = std::fs::read_to_string(app_dir.join("moonlight.json"))
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok());
 
     Some(InstallInfo {
         install: DetectedInstall {
             branch: install_type,
             path: folder.to_path_buf(),
+            moonlight_info,
             flatpak_id: None,
         },
-        patched: app_dir.join(PATCHED_ASAR).exists(),
+        patched: res_dir.join(PATCHED_ASAR).exists(),
         has_config: false,
     })
 }
@@ -78,7 +87,17 @@ pub fn get_app_dir(path: &Path) -> crate::Result<PathBuf> {
 }
 
 #[must_use]
-pub fn get_download_dir() -> PathBuf {
+pub fn default_download_dir(branch: MoonlightBranch) -> PathBuf {
+    get_moonlight_dir().join(DOWNLOAD_DIR).join(branch.as_str())
+}
+
+pub fn get_download_dir(branch: MoonlightBranch) -> Option<PathBuf> {
+    let installer = Installer::new();
+    let mut versions = installer.get_downloaded_versions().unwrap_or_default();
+    versions.remove(&branch).map(|info| info.path.resolve())
+}
+
+pub fn get_compat_download_dir() -> PathBuf {
     get_moonlight_dir().join(DOWNLOAD_DIR)
 }
 
