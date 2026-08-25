@@ -10,6 +10,7 @@ use std::str::FromStr;
 #[derive(
     Serialize, Deserialize, clap::ValueEnum, Debug, Clone, Copy, PartialEq, Eq, Default, Hash,
 )]
+#[serde(rename_all = "camelCase")]
 pub enum MoonlightBranch {
     #[default]
     Stable,
