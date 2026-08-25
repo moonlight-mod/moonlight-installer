@@ -346,6 +346,7 @@ impl eframe::App for App {
                                                     ),
                                             );
 
+                                        #[derive(Debug)]
                                         struct ComboBoxId<'a>(&'a Path);
 
                                         impl<'a> Hash for ComboBoxId<'a> {
