@@ -207,8 +207,8 @@ impl eframe::App for App {
         eframe::set_value(storage, eframe::APP_KEY, self);
     }
 
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        egui::CentralPanel::default().show(ui, |ui| {
             egui::ScrollArea::vertical()
                 .auto_shrink(false)
                 .show(ui, |ui| {
@@ -469,6 +469,6 @@ impl eframe::App for App {
         // Since we're receiving messages on the UI thread, we need to be
         // repainting at least sometimes so the UI can update
         self.handle_messages();
-        ctx.request_repaint_after(Duration::from_millis(100));
+        ui.request_repaint_after(Duration::from_millis(100));
     }
 }
