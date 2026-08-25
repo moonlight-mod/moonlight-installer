@@ -24,7 +24,7 @@ const resolve = (relativePath) => {
   }
 };
 
-const { MOONLIGHT_INJECTOR, PATCHED_ASAR } = JSON.parse(fs.readFileSync(path.join(__dirname, "moonlight.json")));
+const { moonlightInjector, patchedAsar } = JSON.parse(fs.readFileSync(path.join(__dirname, "moonlight.json")));
 
-const injector = resolve(MOONLIGHT_INJECTOR);
-require(injector).inject(path.resolve(__dirname, `../${PATCHED_ASAR}`));
+const injector = resolve(moonlightInjector);
+require(injector).inject(path.resolve(__dirname, `../${patchedAsar}`));

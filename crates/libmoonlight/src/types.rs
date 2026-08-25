@@ -183,7 +183,7 @@ impl RelativePathBuf {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[serde(rename_all = "camelCase")]
 pub struct MoonlightMeta {
     pub moonlight_injector: RelativePathBuf,
     pub patched_asar: String,
