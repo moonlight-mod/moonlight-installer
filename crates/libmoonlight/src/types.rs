@@ -145,45 +145,46 @@ pub struct DetectedInstall {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum TemplatedPathBufBase {
+#[serde(rename_all = "camelCase")]
+pub enum RelativePathBufBase {
     Moonlight,
+    None,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct TemplatedPathBuf {
-    pub relative_to: Option<TemplatedPathBufBase>,
-    pub path_str: PathBuf,
+pub struct RelativePathBuf {
+    pub root: RelativePathBufBase,
+    pub path: PathBuf,
 }
 
-impl TemplatedPathBuf {
-    pub fn try_relative(path_str: PathBuf) -> Self {
-        use TemplatedPathBufBase as Base;
-        pathdiff::diff_paths(&path_str, get_moonlight_dir())
-            .map(|path_str| Self {
-                relative_to: Some(Base::Moonlight),
-                path_str,
+impl RelativePathBuf {
+    pub fn try_relative(path: PathBuf) -> Self {
+        use RelativePathBufBase as Base;
+        pathdiff::diff_paths(&path, get_moonlight_dir())
+            .map(|path| Self {
+                root: Base::Moonlight,
+                path,
             })
             .unwrap_or(Self {
-                relative_to: None,
-                path_str,
+                root: Base::None,
+                path,
             })
     }
 
     pub fn resolve(&self) -> PathBuf {
-        match self.relative_to {
-            Some(TemplatedPathBufBase::Moonlight) => get_moonlight_dir(),
-            None => PathBuf::new(),
+        match self.root {
+            RelativePathBufBase::Moonlight => get_moonlight_dir(),
+            RelativePathBufBase::None => PathBuf::new(),
         }
-        .join(&self.path_str)
+        .join(&self.path)
     }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub struct MoonlightMeta {
-    pub moonlight_injector: TemplatedPathBuf,
+    pub moonlight_injector: RelativePathBuf,
     pub patched_asar: String,
     pub branch: MoonlightBranch,
 }
@@ -212,7 +213,7 @@ pub struct GitHubRelease {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DownloadedBranchInfo {
     pub version: String,
-    pub path: TemplatedPathBuf,
+    pub path: RelativePathBuf,
 }
 
 pub type DownloadedMap = HashMap<MoonlightBranch, DownloadedBranchInfo>;

@@ -1,7 +1,7 @@
 use super::types::{Branch, DetectedInstall, GitHubRelease, InstallInfo, MoonlightBranch};
 use super::util::{default_download_dir, get_home_dir};
 use crate::types::{
-    DownloadedBranchInfo, DownloadedMap, MoonlightMeta, TemplatedPathBuf, TemplatedPathBufBase,
+    DownloadedBranchInfo, DownloadedMap, MoonlightMeta, RelativePathBuf, RelativePathBufBase,
 };
 use crate::{
     ensure_flatpak_overrides, get_app_dir, get_dot_config, get_local_share,
@@ -53,7 +53,7 @@ impl Installer {
             MoonlightBranch::Nightly => self.download_nightly(&dir)?,
         };
 
-        let path = TemplatedPathBuf::try_relative(dir);
+        let path = RelativePathBuf::try_relative(dir);
 
         Ok(DownloadedBranchInfo { version, path })
     }
@@ -115,9 +115,9 @@ impl Installer {
                         branch,
                         DownloadedBranchInfo {
                             version,
-                            path: TemplatedPathBuf {
-                                relative_to: Some(TemplatedPathBufBase::Moonlight),
-                                path_str: PathBuf::from("dist"),
+                            path: RelativePathBuf {
+                                root: RelativePathBufBase::Moonlight,
+                                path: PathBuf::from("dist"),
                             },
                         },
                     )])
@@ -438,7 +438,7 @@ impl Installer {
         std::fs::write(app_dir.join("package.json"), json.to_string())?;
 
         let injector_path = download_dir.join("injector.js");
-        let moonlight_injector = TemplatedPathBuf::try_relative(injector_path);
+        let moonlight_injector = RelativePathBuf::try_relative(injector_path);
 
         let moonlight_info = MoonlightMeta {
             moonlight_injector,

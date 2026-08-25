@@ -15,16 +15,16 @@ const moonlightDir = () => {
   }
 };
 
-const parse = ({ pathStr, relativeTo }) => {
-  switch (relativeTo) {
-    case "MOONLIGHT":
-      return path.join(moonlightDir(), pathStr);
+const resolve = (relativePath) => {
+  switch (relativePath.root) {
+    case "moonlight":
+      return path.join(moonlightDir(), relativePath.path);
     default:
-      return pathStr;
+      return relativePath.root;
   }
 };
 
 const { MOONLIGHT_INJECTOR, PATCHED_ASAR } = JSON.parse(fs.readFileSync(path.join(__dirname, "moonlight.json")));
 
-const injector = parse(MOONLIGHT_INJECTOR);
+const injector = resolve(MOONLIGHT_INJECTOR);
 require(injector).inject(path.resolve(__dirname, `../${PATCHED_ASAR}`));
