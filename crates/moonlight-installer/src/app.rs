@@ -373,8 +373,16 @@ impl eframe::App for App {
                                             },
                                         );
 
+                                        let different_selected =
+                                            install.install.moonlight_info.as_ref().is_some_and(
+                                                |m| m.branch != *selected_moonlight_branch,
+                                            );
                                         let patch_button = egui::Button::new(if install.patched {
-                                            "Unpatch"
+                                            if different_selected {
+                                                "Switch"
+                                            } else {
+                                                "Unpatch"
+                                            }
                                         } else {
                                             "Patch"
                                         });
@@ -386,15 +394,8 @@ impl eframe::App for App {
                                                     .as_ref()
                                                     .is_some_and(|map| {
                                                         map.contains_key(selected_moonlight_branch)
-                                                    }))
-                                            || (install.patched
-                                                && install
-                                                    .install
-                                                    .moonlight_info
-                                                    .as_ref()
-                                                    .is_none_or(|m| {
-                                                        m.branch == *selected_moonlight_branch
-                                                    }));
+                                                    })
+                                                || install.patched);
 
                                         let reset_config_button = egui::Button::new("Reset config");
                                         let can_reset_config = install.has_config;
@@ -407,6 +408,12 @@ impl eframe::App for App {
                                         if patch_clicked {
                                             if install.patched {
                                                 should_unpatch.push(install.install.clone());
+                                                if different_selected {
+                                                    should_patch.push((
+                                                        install.install.clone(),
+                                                        *selected_moonlight_branch,
+                                                    ));
+                                                }
                                             } else {
                                                 should_patch.push((
                                                     install.install.clone(),
@@ -427,18 +434,20 @@ impl eframe::App for App {
                                     }
                                 });
 
-                                for (install, branch) in should_patch {
-                                    self.state.patching = true;
-                                    self.state.patching_branch = Some(install.branch);
-                                    self.state.patching_error = None;
-                                    self.send(LogicCommand::PatchInstall { install, branch });
-                                    self.send(LogicCommand::GetInstalls);
-                                }
                                 for install in should_unpatch {
                                     self.state.patching = true;
                                     self.state.patching_branch = Some(install.branch);
                                     self.state.patching_error = None;
                                     self.send(LogicCommand::UnpatchInstall(install));
+                                    self.send(LogicCommand::GetInstalls);
+                                }
+                                // we do unpatch operations before patch operations to support
+                                // switching moonlight branches
+                                for (install, branch) in should_patch {
+                                    self.state.patching = true;
+                                    self.state.patching_branch = Some(install.branch);
+                                    self.state.patching_error = None;
+                                    self.send(LogicCommand::PatchInstall { install, branch });
                                     self.send(LogicCommand::GetInstalls);
                                 }
                                 for branch in should_reset_config {
